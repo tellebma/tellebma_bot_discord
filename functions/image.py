@@ -2,12 +2,12 @@ from PIL import Image
 from io import BytesIO
 import requests
 
-def open_image_from_url(url):
+def open_image_from_url(url)->Image.Image:
     response = requests.get(url)
     image = Image.open(BytesIO(response.content)).convert("RGBA")
     return image
 
-def generate_image_team_vs_team(img_a, img_b, vs_logo="media/vs_logo.png", output_name="media/created/result_image.png"):
+def generate_image_team_vs_team(img_a, img_b, vs_logo="media/vs_logo.png", output_name="media/created/result_image.png")->str:
     # Charger les images
     if "http" in img_a:
         team_a_logo = open_image_from_url(img_a)
@@ -42,4 +42,3 @@ def generate_image_team_vs_team(img_a, img_b, vs_logo="media/vs_logo.png", outpu
     # Sauvegarder l'image finale
     result_image.save(output_name)
     return output_name
-    
