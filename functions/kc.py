@@ -1,4 +1,3 @@
-
 import requests
 from datetime import datetime, timezone, timedelta
 from functions.image import generate_image_team_vs_team
@@ -53,7 +52,7 @@ class Event:
         print(f"T1: {self.team_domicile.get('name')}")
         print(f"T2: {self.team_exterieur.get('name','UnKnown')}")
     
-    def get_embed_message(self)->str:
+    def get_embed_message(self)->tuple:
         format_date = self.date.strftime('%A %d %B %Hh%M').capitalize()
 
         embed=discord.Embed(title=self.competition_name, description=format_date, color=0x009dff)
@@ -66,7 +65,7 @@ class Event:
         return embed, attachment
 
 
-    def generate_image(self,output_name)->None:
+    def generate_image(self,output_name)->str:
         logo_a = check_logo(self.team_domicile.get('logo'))
         logo_b = check_logo(self.team_exterieur.get('logo'))
         file_path = generate_image_team_vs_team(logo_a, logo_b, output_name=output_name)

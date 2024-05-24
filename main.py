@@ -1,14 +1,11 @@
 import discord
 from discord.ext import commands, tasks
-
 import datetime
 import yaml
 import asyncio
 import locale
 
 from functions.kc import get_today_events
-
-
 
 with open("config.yaml") as f:
     cfg = yaml.load(f, Loader=yaml.FullLoader)
@@ -31,7 +28,6 @@ async def on_ready():
     print(f'We have logged in as {bot.user}')
     target_time = datetime.time(4, 00)  # 15:30 (3:30 PM)
     bot.loop.create_task(check_today_matches(target_time))
-
 
 async def check_today_matches(target_time):
     """Envoyer un message à une heure précise"""
@@ -62,12 +58,9 @@ async def send_kc_event_embed_message(event, target_time):
     embed, attachement = event.get_embed_message()
     channel = bot.get_channel(int(cfg['discord']['channels']['kc']))
     await channel.send(embed=embed,file=attachement)
-    
-    
+     
     # remove embed message 
     # new message début game
     # afficher les résultats 
-
-
 
 bot.run(token)
