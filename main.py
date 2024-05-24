@@ -1,49 +1,67 @@
 import discord
-import datetime
 from discord.ext import commands, tasks
+
+import datetime
 import yaml
+import asyncio
+
+from functions.kc import get_today_events
 
 with open("config.yaml") as f:
     cfg = yaml.load(f, Loader=yaml.FullLoader)
 
 token = cfg.get("token",False)
 if not token:
-    print("plz fill config.yaml file")
+    print("plz fill config.yaml file from config_template.yaml")
     exit()
 
 intents = discord.Intents.default()
 intents.message_content = True
 
-client = discord.Client(intents=intents)
+bot = commands.Bot(command_prefix='!', intents=intents)
 
-utc = datetime.timezone.utc
-
-# If no tzinfo is given then UTC is assumed.
-time = datetime.time(hour=18, minute=25, tzinfo=utc)
-
-@client.event
+@bot.event
 async def on_ready():
-    print(f'We have logged in as {client.user}')
-
-@client.event
-async def on_message(message):
-    if message.author == client.user:
-        return
-
-    if message.content.startswith('$hello'):
-        await message.channel.send('Hello!')
+    print(f'We have logged in as {bot.user}')
+    target_time = datetime.time(4, 00)  # 15:30 (3:30 PM)
+    bot.loop.create_task(check_today_matches(target_time))
 
 
-class MyCog(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-        self.my_task.start()
+async def check_today_matches(target_time):
+    """Envoyer un message à une heure précise"""
+    await bot.wait_until_ready()
+    now = datetime.datetime.now()
+    future = datetime.datetime.combine(now.date(), target_time)
+    if now.time() > target_time:
+        future = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), target_time)
+    await asyncio.sleep((future - now).total_seconds())
 
-    def cog_unload(self):
-        self.my_task.cancel()
+    # Fonction start:
+    events = get_today_events()
+    for event in events:
+        # ajout d'une loop pour chaque event.
+        target_time_message_event = event.date - datetime.timedelta(hours=2)
+        bot.loop.create_task(send_kc_event_embed_message(event, target_time_message_event))
 
-    @tasks.loop(time=time)
-    async def my_task(self):
-        print("My task is running!")
+async def send_kc_event_embed_message(event, target_time):
+    """Envoyer un message à une heure précise"""
+    await bot.wait_until_ready()
+    now = datetime.datetime.now()
+    future = datetime.datetime.combine(now.date(), target_time)
+    if now.time() > target_time:
+        future = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), target_time)
+    await asyncio.sleep((future - now).total_seconds())
 
-client.run(token)
+    # Fonction start
+    embed, attachement = event.get_embed_message()
+    channel = bot.get_channel(int(cfg['discord']['channels']['kc']))
+    await channel.send(embed=embed,file=attachement)
+    
+    
+    # remove embed message 
+    # new message début game
+    # afficher les résultats 
+
+
+
+bot.run(token)

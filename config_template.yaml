@@ -1,0 +1,11 @@
+---
+token: "secret"
+discord:
+  channels:
+    kc: "id_channel"
+    netfamily: "id_channel"
+  roles:
+    admin: "id_role"
+    ctv: "id_role"
+    kc: "id_role"
+    netfamily: "id_role"
