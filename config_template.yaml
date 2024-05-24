@@ -9,3 +9,4 @@ discord:
     ctv: "id_role"
     kc: "id_role"
     netfamily: "id_role"
+local: "fr_FR.UTF-8"

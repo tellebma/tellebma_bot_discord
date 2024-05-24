@@ -3,10 +3,6 @@ import requests
 from datetime import datetime, timezone, timedelta
 from functions.image import generate_image_team_vs_team
 import discord
-import locale
-
-# Définir la localisation en français
-locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')
 
 API_URL="https://www.lebluewall.fr/api/karmine/events"
 def get_events():

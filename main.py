@@ -4,8 +4,11 @@ from discord.ext import commands, tasks
 import datetime
 import yaml
 import asyncio
+import locale
 
 from functions.kc import get_today_events
+
+
 
 with open("config.yaml") as f:
     cfg = yaml.load(f, Loader=yaml.FullLoader)
@@ -14,6 +17,9 @@ token = cfg.get("token",False)
 if not token:
     print("plz fill config.yaml file from config_template.yaml")
     exit()
+
+# Définir la localisation en français
+locale.setlocale(locale.LC_TIME, cfg["local"])
 
 intents = discord.Intents.default()
 intents.message_content = True
