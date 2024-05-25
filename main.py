@@ -4,6 +4,8 @@ import datetime
 import yaml
 import asyncio
 import locale
+import sys
+import traceback
 
 from functions.kc import get_today_events
 
@@ -25,9 +27,33 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 @bot.event
 async def on_ready():
+    datetime_lancement = datetime.datetime.now()
     print(f'We have logged in as {bot.user}')
-    target_time = datetime.time(4, 00)  # 15:30 (3:30 PM)
+    target_time = datetime.time(4, 00)
     bot.loop.create_task(check_today_matches(target_time))
+    
+    if datetime_lancement.hour >= 4:
+        heure = datetime_lancement.hour
+        minute = datetime_lancement.minute + 5
+        if datetime_lancement.minute >= 50:
+            heure = heure + 1
+            minute = 5
+        print(f"Prochaine verification à {heure}h{minute}")
+        await check_today_matches(datetime.time(heure, minute))
+        
+
+@bot.on_error
+async def on_error(event, *args, **kwargs):
+    # Handle all unhandled exceptions globally
+    channel = bot.get_channel(int(cfg['discord']['channels']['error']))
+    date = datetime.datetime.now().strftime('%A %d %B %Hh%M').capitalize()
+    embed=discord.Embed(title="ERROR HANDLER", description=date, color=0xFF0000)
+    embed.add_field(name="", value="", inline=True)
+    embed.add_field(name="An unexpected error occurred", value=f"{sys.exc_info()}", inline=True)
+    await channel.send(embed=embed)
+    traceback.print_exc()
+
+
 
 async def check_today_matches(target_time):
     """Envoyer un message à une heure précise"""
@@ -43,7 +69,8 @@ async def check_today_matches(target_time):
     for event in events:
         # ajout d'une loop pour chaque event.
         target_time_message_event = event.date - datetime.timedelta(hours=2)
-        bot.loop.create_task(send_kc_event_embed_message(event, target_time_message_event))
+        print(f"Annonce kc programmé à {target_time_message_event.hour}h{target_time_message_event.minute}")
+        bot.loop.create_task(send_kc_event_embed_message(event, datetime.time(target_time_message_event.hour,target_time_message_event.minute)))
 
 async def send_kc_event_embed_message(event, target_time):
     """Envoyer un message à une heure précise"""
@@ -53,7 +80,7 @@ async def send_kc_event_embed_message(event, target_time):
     if now.time() > target_time:
         future = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), target_time)
     await asyncio.sleep((future - now).total_seconds())
-
+    print("C'est l'heure de l'annonce !")
     # Fonction start
     embed, attachement = event.get_embed_message()
     channel = bot.get_channel(int(cfg['discord']['channels']['kc']))
