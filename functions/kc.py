@@ -3,6 +3,7 @@ from datetime import datetime, timezone, timedelta
 from functions.image import generate_image_team_vs_team
 import discord
 
+
 API_URL="https://www.lebluewall.fr/api/karmine/events"
 def get_events():
     """
@@ -26,7 +27,7 @@ def get_today_events()->list:
     return today_events
 
 class Event:
-    def __init__(self,json_object) -> None:
+    def __init__(self, json_object) -> None:
         self.date = datetime.fromisoformat(json_object.get("date").replace("Z", "+00:00")) + timedelta(minutes=5)
         self.competition_name = json_object.get("competition_name")
         self.team_domicile = json_object.get("team_domicile")
@@ -34,30 +35,31 @@ class Event:
         self.out_dated = self.outdated()
         self.isToday = self.today()
         self.all = json_object
+        self.event_name = f"{self.team_domicile.get('name')} vs {self.team_exterieur.get('name','N/A')}"
 
     def today(self)->bool:
-        if str(self.date)[:10] == str(datetime.now(timezone.utc))[:10]:
+        if str(self.date)[:10] == str(datetime.now(timezone.cet))[:10]:
             return True
         return False
 
     
     def outdated(self)->bool:
-        if self.date < datetime.now(timezone.utc):
+        if self.date < datetime.now(timezone.cet):
             return True
         return False
 
     def print(self)->None:
         print(f"{self.out_dated=} {self.isToday=} {self.date=}")
         print(f"Jeu: {self.competition_name}")
-        print(f"T1: {self.team_domicile.get('name')}")
-        print(f"T2: {self.team_exterieur.get('name','UnKnown')}")
+        print(f"Team 1: {self.team_domicile.get('name')}")
+        print(f"Team 2: {self.team_exterieur.get('name','UnKnown')}")
     
     def get_embed_message(self)->tuple:
         format_date = self.date.strftime('%A %d %B %Hh%M').capitalize()
 
         embed=discord.Embed(title=self.competition_name, description=format_date, color=0x009dff)
-        embed.set_author(name=f"{self.team_domicile.get('name')} vs {self.team_exterieur.get('name','N/A')}", icon_url=f"http://www.lebluewall.fr/_next/image?url=%2Fgames%2F{self.competition_name.lower()[3:]}.webp&w=48&q=75")
-        output_name = f"{self.competition_name.lower()}_{self.team_domicile.get('name').lower()}_vs_{self.team_exterieur.get('name','unknow').lower()}.png"
+        embed.set_author(name=f"{self.event_name}", icon_url=f"http://www.lebluewall.fr/_next/image?url=%2Fgames%2F{self.competition_name.lower()[3:]}.webp&w=48&q=75")
+        output_name = f"{self.competition_name}_{self.event_name.replace(' ','_')}.png".lower()
         file_path = f"media/created/{output_name}"
         file_path = self.generate_image(file_path)
         attachment = discord.File(file_path, filename=output_name)
@@ -65,7 +67,7 @@ class Event:
         return embed, attachment
 
 
-    def generate_image(self,output_name)->str:
+    def generate_image(self, output_name)->str:
         logo_a = check_logo(self.team_domicile.get('logo'))
         logo_b = check_logo(self.team_exterieur.get('logo'))
         file_path = generate_image_team_vs_team(logo_a, logo_b, output_name=output_name)
