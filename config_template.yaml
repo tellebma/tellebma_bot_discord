@@ -1,12 +1,13 @@
 ---
-token: "secret"
+token: "secret" # your Discord secret Token
 discord:
   channels:
-    kc: "id_channel"
-    netfamily: "id_channel"
+    kc: "id_channel_for_kc_alerts"
+    netfamily: "id_channel_for_film_notif"
+    error: "id_channel_where_to_send_error_messages"
   roles:
-    admin: "id_role"
-    ctv: "id_role"
-    kc: "id_role"
-    netfamily: "id_role"
-local: "fr_FR.UTF-8"
+    admin: "id_role_not_used"
+    ctv: "id_role_not_used"
+    kc: "id_role_not_used"
+    netfamily: "id_role_not_used"
+local: "fr_FR.UTF-8" # for embed messages to be like so Lundi 20 mai
