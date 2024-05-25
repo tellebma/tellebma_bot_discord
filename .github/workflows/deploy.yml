@@ -32,7 +32,7 @@ jobs:
       id: determine_tag
       run: |
         if [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
-          echo "TAG_NAME=main" >> $GITHUB_ENV
+          echo "TAG_NAME=latest" >> $GITHUB_ENV
         elif [ "${{ github.event_name }}" == "pull_request" ]; then
           echo "TAG_NAME=snapshot" >> $GITHUB_ENV
         elif [ "${{ github.event_name }}" == "create" ]; then
