@@ -3,6 +3,7 @@ from datetime import datetime, timezone, timedelta
 from functions.image import generate_image_team_vs_team
 import discord
 
+
 API_URL="https://www.lebluewall.fr/api/karmine/events"
 def get_events():
     """
@@ -37,13 +38,13 @@ class Event:
         self.event_name = f"{self.team_domicile.get('name')} vs {self.team_exterieur.get('name','N/A')}"
 
     def today(self)->bool:
-        if str(self.date)[:10] == str(datetime.now(timezone.utc))[:10]:
+        if str(self.date)[:10] == str(datetime.now(timezone.cet))[:10]:
             return True
         return False
 
     
     def outdated(self)->bool:
-        if self.date < datetime.now(timezone.utc):
+        if self.date < datetime.now(timezone.cet):
             return True
         return False
 
