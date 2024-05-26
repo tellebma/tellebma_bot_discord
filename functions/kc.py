@@ -53,7 +53,7 @@ class Event:
         
         self.event_name = f"{self.team_domicile.get('name')} vs {self.team_exterieur.get('name','unknown')}"
         self.gamemode_str = get_game_str(self.gamemode)
-        self.__str__ = self.gamemode_str + "_" + self.event_name.relpace(" ","_")
+        self.__str__ = self.gamemode_str + "_" + self.event_name.replace(" ","_")
 
     def today(self)->bool:
         now = datetime.now(pytz.timezone(TIMEZONE_STR))
