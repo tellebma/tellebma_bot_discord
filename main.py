@@ -75,18 +75,6 @@ async def on_error(event, *args, **kwargs):
     traceback.print_exc()
     await send_error_message(sys.exc_info())
 
-@bot.command(name='test', help='test de commande :)')
-async def test(ctx):
-    events = get_today_events()
-    for event in events:
-        logger.info(event.event_name)
-        try:
-            embed, attachements = event.get_embed_message()
-            channel = bot.get_channel(int(cfg['discord']['channels']['kc']))
-            await channel.send(embed=embed,files=attachements)
-        except Exception as e:
-            logging.warning(e)
-            await send_error_message(e)
     
 @bot.command(name='delete', help='Supprime les X messages précédents dans le canal.')
 @commands.has_permissions(manage_messages=True)
