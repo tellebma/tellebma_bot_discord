@@ -2,3 +2,4 @@ discord
 PyYAML
 requests
 pillow
+pytz

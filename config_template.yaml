@@ -11,3 +11,5 @@ discord:
     kc: "id_role_not_used"
     netfamily: "id_role_not_used"
 local: "fr_FR.UTF-8" # for embed messages to be like so Lundi 20 mai
+timezone: "Europe/Paris"
+kc_api_url: "https://www.lebluewall.fr/api/karmine/events" # thx again :) 

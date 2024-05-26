@@ -73,9 +73,31 @@ async def on_error(event, *args, **kwargs):
     # Handle all unhandled exceptions globally
     logging.warning(traceback.format_exc())
     traceback.print_exc()
-    send_error_message(sys.exc_info())
+    await send_error_message(sys.exc_info())
 
+@bot.command(name='test', help='test de commande :)')
+async def test(ctx):
+    events = get_today_events()
+    for event in events:
+        logger.info(event.event_name)
+        try:
+            embed, attachements = event.get_embed_message()
+            channel = bot.get_channel(int(cfg['discord']['channels']['kc']))
+            await channel.send(embed=embed,files=attachements)
+        except Exception as e:
+            logging.warning(e)
+            await send_error_message(e)
+    
+@bot.command(name='delete', help='Supprime les X messages précédents dans le canal.')
+@commands.has_permissions(manage_messages=True)
+async def delete(ctx, number_of_messages: int):
+    if number_of_messages < 1:
+        await ctx.send("Le nombre de messages à supprimer doit être supérieur à 0.")
+        return
 
+    # +1 pour inclure le message de commande
+    deleted = await ctx.channel.purge(limit=number_of_messages + 1)
+    await ctx.send(f'{len(deleted) - 1} messages supprimés.', delete_after=5)
 
 async def check_today_matches(target_time):
     """Envoyer un message à une heure précise"""
@@ -105,12 +127,12 @@ async def send_kc_event_embed_message(event, target_time):
     logger.info("C'est l'heure de l'annonce !")
     # Fonction start
     try:
-        embed, attachement = event.get_embed_message()
+        embed, attachements = event.get_embed_message()
         channel = bot.get_channel(int(cfg['discord']['channels']['kc']))
-        await channel.send(embed=embed,file=attachement)
+        await channel.send(embed=embed,files=attachements)
     except Exception as e:
         logging.warning(e)
-        send_error_message(e)
+        await send_error_message(e)
 
     # remove embed message 
     # new message début game
