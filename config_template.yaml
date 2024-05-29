@@ -3,6 +3,7 @@ token: "secret" # your Discord secret Token
 discord:
   channels:
     kc: "id_channel_for_kc_alerts"
+    kc_id: "channel used for logging + future result"
     netfamily: "id_channel_for_film_notif"
     error: "id_channel_where_to_send_error_messages"
   roles:
@@ -12,4 +13,4 @@ discord:
     netfamily: "id_role_not_used"
 local: "fr_FR.UTF-8" # for embed messages to be like so Lundi 20 mai
 timezone: "Europe/Paris"
-kc_api_url: "https://www.lebluewall.fr/api/karmine/events" # thx again :) 
+kc_api_url: "https://api2.kametotv.fr/karmine" # j'ai trouvé la source, merci a vous :) 
