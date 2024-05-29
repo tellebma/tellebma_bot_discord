@@ -8,6 +8,11 @@ import sys
 import traceback
 import logging
 import logging.handlers
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+
+
+from functions import kc
 
 logger = logging.getLogger('discord')
 logger.setLevel(logging.INFO)
@@ -28,8 +33,6 @@ logger.addHandler(handler)
 console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
-
-from functions.kc import get_today_events
 
 with open("config.yaml") as f:
     cfg = yaml.load(f, Loader=yaml.FullLoader)
@@ -55,17 +58,18 @@ async def on_ready():
     datetime_lancement = datetime.datetime.now()
     logger.info(f"Version of this bot {version}")
     logger.info(f'We have logged in as {bot.user}')
-    target_time = datetime.time(4, 00)
-    bot.loop.create_task(check_today_matches(target_time))
     
+    if bot.get_channel(int(cfg['discord']['channels']['kc'])):
+        #notification
+        scheduler = AsyncIOScheduler()
+        scheduler.add_job(check_today_matches, CronTrigger(hour=4, minute=0))
+        if bot.get_channel(int(cfg['discord']['channels']['kc_id'])):
+            # verification resultat
+            scheduler.add_job(check_kc_result_embed_message, 'cron', hour='9,12,15,18,20,22')
+        scheduler.start()
+
     if datetime_lancement.hour >= 4:
-        heure = datetime_lancement.hour
-        minute = datetime_lancement.minute + 5
-        if datetime_lancement.minute >= 50:
-            heure = heure + 1
-            minute = 5
-        logger.info(f"Prochaine verification à {heure}h{minute}")
-        await check_today_matches(datetime.time(heure, minute))
+        await check_today_matches()
         
 
 @bot.event
@@ -87,22 +91,16 @@ async def delete(ctx, number_of_messages: int):
     deleted = await ctx.channel.purge(limit=number_of_messages + 1)
     await ctx.send(f'{len(deleted) - 1} messages supprimés.', delete_after=5)
 
-async def check_today_matches(target_time):
+async def check_today_matches():
     """Envoyer un message à une heure précise"""
     await bot.wait_until_ready()
-    now = datetime.datetime.now()
-    future = datetime.datetime.combine(now.date(), target_time)
-    if now.time() > target_time:
-        future = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), target_time)
-    await asyncio.sleep((future - now).total_seconds())
-
     # Fonction start:
-    events = get_today_events()
+    events = kc.get_today_events()
     for event in events:
         # ajout d'une loop pour chaque event.
         target_time_message_event = event.date - datetime.timedelta(hours=2)
         logger.info(f"Annonce kc programmé à {target_time_message_event.hour}h{target_time_message_event.minute}")
-        bot.loop.create_task(send_kc_event_embed_message(event, datetime.time(target_time_message_event.hour,target_time_message_event.minute)))
+        bot.loop.create_task(send_kc_event_embed_message(event, datetime.time(target_time_message_event.hour, target_time_message_event.minute)))
 
 async def send_kc_event_embed_message(event, target_time):
     """Envoyer un message à une heure précise"""
@@ -117,7 +115,12 @@ async def send_kc_event_embed_message(event, target_time):
     try:
         embed, attachements = event.get_embed_message()
         channel = bot.get_channel(int(cfg['discord']['channels']['kc']))
-        await channel.send(embed=embed,files=attachements)
+        embed_message = await channel.send(embed=embed,files=attachements)
+        channel = bot.get_channel(int(cfg['discord']['channels']['kc_id']))
+        if channel:
+            await channel.send(f"[{event.id}] - {embed_message.id}")
+            # send : [{event.id}] - {embed_message.id}
+        
     except Exception as e:
         logging.warning(e)
         await send_error_message(e)
@@ -126,6 +129,47 @@ async def send_kc_event_embed_message(event, target_time):
     # new message début game
     # afficher les résultats 
 
+async def check_kc_result_embed_message():
+    """Envoyer un message à une heure précise"""
+    try:
+        channel = bot.get_channel(int(cfg['discord']['channels']['kc_id']))
+        if not channel:
+            return 
+        
+        messages = await channel.history(limit=10).flatten()
+        for message in messages:
+            if '❌' in message.reaction:
+                continue
+            if ':white_check_mark:' in message.reaction:
+                continue
+
+            id_event, id_embed_message = kc.get_message_info(message.content)
+            if not id_event or not id_embed_message:
+                await message.add_reaction('❌')
+                continue
+            
+            result = kc.get_result(id_event)
+            if not result:
+                await message.add_reaction('⏳')
+                continue
+
+            
+            event = kc.Event(result)
+            event.ended = True
+
+            message_embed = await bot.fetch_message(int(id_embed_message))
+            logger.info(f"{message_embed=}")
+            logger.info(f"{message_embed.attachments=}")
+            logger.info(f"{message_embed.embeds=}")
+            # message conforme
+        
+    except Exception as e:
+        logging.warning(e)
+        await send_error_message(e)
+
+    # remove embed message 
+    # new message début game
+    # afficher les résultats 
 
 async def send_error_message(error_message):
     channel = bot.get_channel(int(cfg['discord']['channels']['error']))
