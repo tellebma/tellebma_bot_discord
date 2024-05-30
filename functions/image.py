@@ -96,7 +96,7 @@ def edit_image_add_score(image_base: str,
     width = image.width + 60  # Espacement de 20px de chaque côté du "VS"
     height = image.height + 50
     result_image = Image.new('RGBA', (width, height), (255, 255, 255, 0))
-    result_image.paste(image, ((width - image.width) // 2, (height - image.height) // 2 + 40))
+    result_image.paste(image, ((width - image.width) // 2, (height - image.height) // 2 + 10))
     draw = ImageDraw.Draw(result_image)
     font = ImageFont.truetype("media\\Oswald-SemiBold.ttf", 50)
     text_bbox = draw.textbbox((0, 0), score, font=font)

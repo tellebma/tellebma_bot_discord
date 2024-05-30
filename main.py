@@ -60,10 +60,12 @@ async def on_ready():
     logger.info(f"Version of this bot {version}")
     logger.info(f'We have logged in as {bot.user}')  
     if bot.get_channel(int(cfg['discord']['channels']['kc'])):
+        logger.info("Alert KC active")
         # notification
         scheduler = AsyncIOScheduler()
         scheduler.add_job(check_today_matches, CronTrigger(hour=4, minute=0))
         if bot.get_channel(int(cfg['discord']['channels']['kc_id'])):
+            logger.info("ALert KC result active")
             # verification resultat
             scheduler.add_job(check_kc_result_embed_message, 'cron', hour='9,12,15,18,20,22')
         scheduler.start()
@@ -76,7 +78,7 @@ async def on_ready():
 @bot.event
 async def on_error(event, *args, **kwargs):
     # Handle all unhandled exceptions globally
-    logging.warning(traceback.format_exc())
+    logging.error(traceback.format_exc())
     traceback.print_exc()
     await send_error_message(sys.exc_info())
 
@@ -102,9 +104,7 @@ async def check_today_matches():
     for event in events:
         # ajout d'une loop pour chaque event.
         target_time_message_event = event.start - datetime.timedelta(hours=2)
-        logger.info(f"Annonce kc programmé à \
-                    {target_time_message_event.hour}h\
-                    {target_time_message_event.minute}")
+        logger.info(f"Annonce kc programmé à {str(target_time_message_event.hour).zfill(2)}h{str(target_time_message_event.minute).zfill(2)}")
         bot.loop.create_task(
             send_kc_event_embed_message(event,
                                         datetime.time(target_time_message_event.hour,
@@ -135,8 +135,8 @@ async def send_kc_event_embed_message(event, target_time):
             # send : [{event.id}] - {embed_message.id}
  
     except Exception as e:
-        logging.warning(e)
-        await send_error_message(e)
+        logging.error("error (send_kc_event_embed_message)",exc_info=e)
+        await send_error_message(e, function="send_kc_event_embed_message")
 
     # remove embed message
     # new message début game
@@ -146,7 +146,7 @@ async def send_kc_event_embed_message(event, target_time):
 async def check_kc_result_embed_message():
     """Envoyer un message à une heure précise"""
     try:
-        logger.warn("Verification des résultats")
+        logger.info("Verification des résultats")
         channel = bot.get_channel(int(cfg['discord']['channels']['kc_id']))
         if not channel:
             return
@@ -155,20 +155,18 @@ async def check_kc_result_embed_message():
             result_json = kc.get_result()
         for message in messages:
             if message.reactions:
-                logger.info(f"des reactions sont présentes sur le message \
-                            {message.content}, il est alors ignoré")
+                logger.info(f"❌ des reactions sont présentes sur le message {message.content}, il est alors ignoré")
                 continue
 
             id_event, id_embed_message = kc.get_message_info(message.content)
             if not id_event or not id_embed_message:
-                logger.info("Ajout de la reaction '❌' a ce message car non \
-                            conforme")
+                logger.warning("Ajout de la reaction '❌' a ce message car non conforme")
                 await message.add_reaction('❌')
                 continue
             result = kc.filtre_result(result_json, id_event)
             if not result:
                 logger.info(id_event)
-                logger.info("pas encore les résultats")
+                logger.info("⏳ pas encore les résultats")
                 # await message.add_reaction('⏳')
                 continue
 
@@ -177,31 +175,30 @@ async def check_kc_result_embed_message():
             channel = bot.get_channel(int(cfg['discord']['channels']['kc']))
             message_embed = await channel.fetch_message(int(id_embed_message))
             if not message_embed:
-                logger.warn("Un message n'a pas été trouvé")
-                logger.warn(f"{message_embed=}")
-                logger.warn(f"{id_embed_message=}")    
+                logger.warning("❌ Le message n'a pas été trouvé")
                 await message.add_reaction('❌')
-            logger.info(f"{message_embed=}")
-            logger.info(f"{message_embed.attachments=}")
-            logger.info(f"{message_embed.embeds=}")
+            
+            logger.info("✅ Le message a bien été trouvé, génération du message")
             embed, attachements = event.get_embed_result_message()
             await message_embed.reply(embed=embed, files=attachements)
+            logger.info("✅ Message résultat envoyé, suppression du message sur 'kc_id'.")
             await message.delete()
+            
+        logger.info("Traitement des résultats est terminé")
 
     except Exception as e:
-        print(e)
-        logging.warning(e)
-        await send_error_message(e)
-
+        logging.error("error (check_kc_result_embed_message)",exc_info=e)
+        await send_error_message(e, function="check_kc_result_embed_message")
+        await send_error_message(sys.exc_info(), function="check_kc_result_embed_message")
     # remove embed message
     # new message début game
     # afficher les résultats
 
 
-async def send_error_message(error_message):
+async def send_error_message(error_message, function=""):
     channel = bot.get_channel(int(cfg['discord']['channels']['error']))
     date = datetime.datetime.now().strftime('%A %d %B %Hh%M').capitalize()
-    embed = discord.Embed(title="ERROR HANDLER",
+    embed = discord.Embed(title=f"❌ ERROR HANDLER {function}",
                           description=date,
                           color=0xFF0000)
     embed.add_field(name="",
