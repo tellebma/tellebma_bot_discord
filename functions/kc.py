@@ -242,7 +242,7 @@ class Event:
             self.message = f"{', '.join(self.player)}"
             self.logo = "media/Karmine_Corp.png"
             if not self.ended:
-                self.description = f"{self.message} {'jouera' if self.player > 2 else 'joueront'} à {self.start.hour}h !"
+                self.description = f"{self.message} {'jouera' if len(self.player) > 2 else 'joueront'} à {self.start.hour}h !"
             else:
                 self.description = f"{self.message} à {self.score}"
 
