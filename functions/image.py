@@ -1,7 +1,8 @@
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import requests
-
+import time
+import random
 
 def open_image_from_url(url) -> Image.Image:
     response = requests.get(url)
@@ -72,7 +73,14 @@ def generate_image_team(img_a: str,
 
     # Ajouter du texte en dessous du logo
     draw = ImageDraw.Draw(result_image)
-    font = ImageFont.truetype("media\\Oswald-SemiBold.ttf", 40 // num_player)
+    try:
+        font = ImageFont.truetype("media\\oswald.ttf", 40 // num_player)
+    except OSError:
+        try:
+            font = ImageFont.truetype("media\\roboto.ttf", 40 // num_player)
+        except OSError:
+            font = ImageFont.load_default(size=40 // num_player)
+
     text_bbox = draw.textbbox((0, 0), text, font=font)
     text_width, text_height = text_bbox[2] - text_bbox[0], text_bbox[3] - text_bbox[1]
     # Positionner le texte en bas et au centre
@@ -98,7 +106,13 @@ def edit_image_add_score(image_base: str,
     result_image = Image.new('RGBA', (width, height), (255, 255, 255, 0))
     result_image.paste(image, ((width - image.width) // 2, (height - image.height) // 2 + 10))
     draw = ImageDraw.Draw(result_image)
-    font = ImageFont.truetype("media\\Oswald-SemiBold.ttf", 50)
+    try:
+        font = ImageFont.truetype("media\\oswald.ttf", 50)
+    except OSError:
+        try:
+            font = ImageFont.truetype("media\\roboto.ttf", 50)
+        except OSError:
+            font = ImageFont.load_default(size=50)
     text_bbox = draw.textbbox((0, 0), score, font=font)
 
     text_width, text_height = text_bbox[2] - text_bbox[0], text_bbox[3] - text_bbox[1]

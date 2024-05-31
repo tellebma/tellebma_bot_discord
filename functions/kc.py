@@ -7,7 +7,7 @@ import requests
 import pytz
 import yaml
 import re
-
+import random
 
 with open("config.yaml") as f:
     cfg = yaml.load(f, Loader=yaml.FullLoader)
@@ -120,6 +120,8 @@ def get_game_img(gamemode: GameMode) -> str:
         return "media/TFT.png"
     elif gamemode == GameMode.ROCKET_LEAGUE:
         return "media/RL.png"
+    elif gamemode == GameMode.TAKKENSTREETFIGHTER:
+        return "media/" + random.choice("Takken.png", "Street_Fighter_6.png") 
     return default
 
 
@@ -143,6 +145,8 @@ def get_game_str(gamemode: GameMode) -> str:
         return "TFT"
     elif gamemode == GameMode.ROCKET_LEAGUE:
         return "RocketLeague"
+    elif gamemode == GameMode.TAKKENSTREETFIGHTER:
+        return "Takken & Street Fighter"
     return default
 
 
@@ -166,6 +170,8 @@ def get_game_color(gamemode: GameMode) -> str:
         return 0xFFB200  # doré
     elif gamemode == GameMode.ROCKET_LEAGUE:
         return 0x00B226  # vert
+    elif gamemode == GameMode.TAKKENSTREETFIGHTER:
+        return 0xED7F10  # orange
     return default
 
 

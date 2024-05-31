@@ -51,6 +51,7 @@ locale.setlocale(locale.LC_TIME, cfg["local"])
 intents = discord.Intents.default()
 intents.message_content = True
 
+MESSAGE_DEBUT_GAME = cfg["debut_game"]
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 
@@ -60,12 +61,12 @@ async def on_ready():
     logger.info(f"Version of this bot {version}")
     logger.info(f'We have logged in as {bot.user}')  
     if bot.get_channel(int(cfg['discord']['channels']['kc'])):
-        logger.info("Alert KC active")
+        logger.info("✅ - Alert KC active")
         # notification
         scheduler = AsyncIOScheduler()
         scheduler.add_job(check_today_matches, CronTrigger(hour=4, minute=0))
         if bot.get_channel(int(cfg['discord']['channels']['kc_id'])):
-            logger.info("ALert KC result active")
+            logger.info("✅ - Alert KC result active")
             # verification resultat
             scheduler.add_job(check_kc_result_embed_message, 'cron', hour='9,12,15,18,20,22')
         scheduler.start()
@@ -87,12 +88,14 @@ async def on_error(event, *args, **kwargs):
 @commands.has_permissions(manage_messages=True)
 async def delete(ctx, number_of_messages: int):
     if number_of_messages < 1:
-        await ctx.send("Le nombre de messages à supprimer doit être supérieur à 0.")
+        await ctx.send("❌ Le nombre de messages à supprimer doit être supérieur à 0.")
+        logger.info(f'❌ Le nombre de messages à supprimer doit être supérieur à 0. - {ctx.author}')
         return
 
     # +1 pour inclure le message de commande
     deleted = await ctx.channel.purge(limit=number_of_messages + 1)
-    await ctx.send(f'{len(deleted) - 1} messages supprimés.', delete_after=5)
+    await ctx.send(f'✅ {len(deleted) - 1} messages supprimés.', delete_after=5)
+    logger.info(f'✅ {len(deleted) - 1} messages supprimés - {ctx.author}')
 
 
 async def check_today_matches():
@@ -109,6 +112,38 @@ async def check_today_matches():
             send_kc_event_embed_message(event,
                                         datetime.time(target_time_message_event.hour,
                                                       target_time_message_event.minute)))
+        bot.loop.create_task(
+            send_kc_twitch_link_message(event,
+                                        datetime.time(event.start.hour,
+                                                      event.start.minute)))
+
+
+async def send_kc_twitch_link_message(event, target_time):
+    """Envoyer un message à une heure précise"""
+    await bot.wait_until_ready()
+    now = datetime.datetime.now()
+    future = datetime.datetime.combine(now.date(), target_time)
+    if now.time() > target_time:
+        future = datetime.datetime.combine(now.date() +
+                                           datetime.timedelta(days=1),
+                                           target_time)
+    await asyncio.sleep((future - now).total_seconds())
+    channel = bot.get_channel(int(cfg['discord']['channels']['kc_id']))
+    if not channel:
+        return
+    
+    messages = [message async for message in channel.history(limit=10)]
+    
+    for message in messages:
+        id_event, id_embed_message = kc.get_message_info(message.content)
+        if not id_event or not id_embed_message:
+            continue
+        if id_event == event.id:
+            message_embed = await channel.fetch_message(int(id_embed_message))
+            message_embed.reply(f"{event.title}\n{MESSAGE_DEBUT_GAME}\n{event.stream}")
+            logger.info("✅ Message stream envoyé !")
+            return
+    logger.info("❌ Message stream erreur")
 
 
 async def send_kc_event_embed_message(event, target_time):
@@ -131,11 +166,11 @@ async def send_kc_event_embed_message(event, target_time):
         channel = bot.get_channel(int(cfg['discord']['channels']['kc_id']))
         if channel:
             await channel.send(f"[{event.id}] - {embed_message.id}")
-            logger.info("Message sur channel kc_id envoyé")
+            logger.info("✅ Message sur channel kc_id envoyé")
             # send : [{event.id}] - {embed_message.id}
  
     except Exception as e:
-        logging.error("error (send_kc_event_embed_message)",exc_info=e)
+        logging.error("❌ error (send_kc_event_embed_message)",exc_info=e)
         await send_error_message(e, function="send_kc_event_embed_message")
 
     # remove embed message
