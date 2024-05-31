@@ -10,6 +10,7 @@ class GameMode(Enum):
     VALORANT_VCT = "ValorantVCT"
     TFT = "TFT"
     ROCKET_LEAGUE = "RocketLeague"
+    TAKKENSTREETFIGHTER = "Tekken8StreetFighter6"
 
 class Mode(Enum):
     PLAYER = "Player"
