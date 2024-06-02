@@ -1,7 +1,7 @@
 import re
 import pytz
 from datetime import datetime
-
+from typing import Tuple, Optional
 
 def extract_around_vs(text):
     # Définir le modèle regex pour capturer le texte autour de "vs"
@@ -58,7 +58,7 @@ def update_timezone(datetime_object: datetime,
     return datetime_object.astimezone(timezone_dest)
 
 
-def get_message_info(message):
+def get_message_info(message)->Tuple[Optional[int], Optional[int]]:
     """
     Dans le channel KC_id on recup chaque message et cette fonction permet 
       de dire si un message est conforme ou non.
@@ -69,8 +69,12 @@ def get_message_info(message):
     match = pattern.search(message)
 
     if match:
-        # Extraire les groupes capturés
-        id_event = match.group(1).strip()
-        id_message = match.group(2).strip()
-        return id_event, id_message
+        try:
+            # Extraire les groupes capturés et les convertir en int
+            id_event = int(match.group(1).strip())
+            id_message = int(match.group(2).strip())
+            return id_event, id_message
+        except ValueError:
+            # Gestion des erreurs de conversion en int
+            return None, None
     return None, None
