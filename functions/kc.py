@@ -30,6 +30,14 @@ def get_events():
         return r.json()
     return []
 
+def get_id_event(id:bool) -> dict:
+    events = get_events()
+    for event in events:
+        if id == int(event.get("id",0)):
+            return event
+    return None
+
+
 
 def get_today_events() -> list:
     """
@@ -86,6 +94,7 @@ def extract_teamname(logo_url, jeu):
         data = match.group(1).strip('-')
         return data
     else:
+
         pattern = re.compile(r'karmine/teams/(.*?).png')
         match = pattern.search(logo_url)
         if match:
