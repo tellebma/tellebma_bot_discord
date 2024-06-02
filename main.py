@@ -142,6 +142,18 @@ async def send_kc_twitch_link_message(event, target_time):
     channel = bot.get_channel(int(cfg['discord']['channels']['kc_id']))
     if not channel:
         return
+    try:
+        # renew info on this event
+        old_event = event
+        event_json = kc.get_id_event(event.id)
+        if event_json:
+            event = kc.Event(event_json)
+            logger.info("   ↳  Données Mise à jour !")
+        
+    except:
+        logger.warning("   ↳  ❌ La mise a jour des info de l'event n'a pas réussi.")
+        event = old_event
+
     messages_list = await kc_list_annonce_publie()
     logger.info(f"⇒ Annonce avec le lien du stream  ! {event.id} - {event.title}")
     for message_el in messages_list:
