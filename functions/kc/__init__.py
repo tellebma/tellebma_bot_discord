@@ -1,48 +1,24 @@
-from functions.enum import GameMode, Mode
-from functions.image import generate_image_team, generate_image_team_vs_team, edit_image_add_score
+from functions.kc.enum import GameMode, Mode
+from functions.kc.image import generate_image_team, generate_image_team_vs_team, edit_image_add_score
 
 from datetime import datetime, timedelta
 import discord
-import requests
 import pytz
-import yaml
 import re
-import random
 
-with open("config.yaml") as f:
-    cfg = yaml.load(f, Loader=yaml.FullLoader)
-
-BASE_URL = cfg["kc_api_url"]
-TIMEZONE_STR = cfg["timezone"]
-
-API_EVENT = f"{BASE_URL}/events"
-API_RESULTS = f"{BASE_URL}/events_results"
-print(API_RESULTS)
-TIMEZONE_STR = "Europe/Paris"
-
-
-def get_events():
-    """
-    Récupère la liste des matches
-    """
-    r = requests.get(API_EVENT)
-    if r.status_code == 200:
-        return r.json()
-    return []
-
-def get_id_event(id:bool) -> dict:
-    events = get_events()
-    for event in events:
-        if id == int(event.get("id",0)):
-            return event
-    return None
+from functions.kc.config import TIMEZONE_STR
+from functions.kc.api import filtre_result, get_events, get_id_event, get_result
+from functions.kc.functions import update_timezone, filtre_player, extract_teamname, extract_around_vs, get_message_info
+from functions.kc.media import get_game_str, get_game_color, get_game_img, check_logo
+from functions.log import logger
 
 
 
 def get_today_events() -> list:
     """
-    Récupère exclusivement la liste des matches du jours
+    Récupère exclusivement la liste des matches du jours et qui on pas encore commencé.
     """
+    
     events = get_events()
     today_events = []
     for event in events:
@@ -50,156 +26,6 @@ def get_today_events() -> list:
         if e.today() and not e.outdated():
             today_events.append(e)
     return today_events
-
-
-def get_result():
-    r = requests.get(API_RESULTS)
-    if r.status_code == 200:
-        return r.json()
-    return []
-
-
-def filtre_result(json: list, id: int):
-    for i in json:
-        if int(i.get("id", 0)) == int(id):
-            return i
-    return None
-
-
-def extract_around_vs(text):
-    # Définir le modèle regex pour capturer le texte autour de "vs"
-    pattern = re.compile(r'\s(.*?)\s+vs\s+(.*)')
-
-    # Chercher le modèle dans le texte donné
-    match = pattern.search(text)
-
-    if match:
-        # Extraire les groupes capturés
-        before_vs = match.group(1).strip()
-        after_vs = match.group(2).strip()
-        return before_vs, after_vs
-    else:
-        return None, None
-
-
-def extract_teamname(logo_url, jeu):
-    # Définir le modèle regex pour capturer le texte entre 'karmine/teams/' et le jeu spécifié
-    pattern = re.compile(r'karmine/teams/(.*?)' + jeu)
-
-    # Chercher le modèle dans l'URL donnée
-    match = pattern.search(logo_url)
-
-    if match:
-        # Extraire le groupe capturé
-        data = match.group(1).strip('-')
-        return data
-    else:
-
-        pattern = re.compile(r'karmine/teams/(.*?).png')
-        match = pattern.search(logo_url)
-        if match:
-            return match.group(1).strip('-')
-
-        if logo_url == "https://medias.kametotv.fr/karmine/teams_logo/KC.png":
-            return "Karmine Corp"
-        return None
-
-
-def filtre_player(player_list_str: str) -> list:
-    return list(set(player_list_str.split(';')))
-
-
-def get_game_img(gamemode: GameMode) -> str:
-    default = "media/KC_default.jpg"
-    if gamemode == GameMode.LEAGUE_OF_LEGENDS_LEC:
-        return "media/LEC.png"
-    elif gamemode == GameMode.LEAGUE_OF_LEGENDS_LFL:
-        return "media/LFL.png"
-    elif gamemode == GameMode.LEAGUE_OF_LEGENDS:
-        return "media/LOL.png"
-    elif gamemode == GameMode.FORTNITE:
-        return "media/Fortnite.png"
-    elif gamemode == GameMode.VALORANT_VCT_GC:
-        return "media/Valorant_GC.png"
-    elif gamemode == GameMode.VALORANT_VCT:
-        return "media/ValorantVCT.png"
-    elif gamemode == GameMode.VALORANT:
-        return "media/Valorant.png"
-    elif gamemode == GameMode.TFT:
-        return "media/TFT.png"
-    elif gamemode == GameMode.ROCKET_LEAGUE:
-        return "media/RL.png"
-    elif gamemode == GameMode.TAKKENSTREETFIGHTER:
-        return "media/" + random.choice("Takken.png", "Street_Fighter_6.png") 
-    return default
-
-
-def get_game_str(gamemode: GameMode) -> str:
-    default = "C'est maintenant !"
-    if gamemode == GameMode.LEAGUE_OF_LEGENDS_LEC:
-        return "LEC"
-    elif gamemode == GameMode.LEAGUE_OF_LEGENDS_LFL:
-        return "LFL"
-    elif gamemode == GameMode.LEAGUE_OF_LEGENDS:
-        return "League Of Legends"
-    elif gamemode == GameMode.FORTNITE:
-        return "Fortnite"
-    elif gamemode == GameMode.VALORANT_VCT_GC:
-        return "Valorant VCT GC"
-    elif gamemode == GameMode.VALORANT_VCT:
-        return "Valorant VCT"
-    elif gamemode == GameMode.VALORANT:
-        return "Valorant"
-    elif gamemode == GameMode.TFT:
-        return "TFT"
-    elif gamemode == GameMode.ROCKET_LEAGUE:
-        return "RocketLeague"
-    elif gamemode == GameMode.TAKKENSTREETFIGHTER:
-        return "Takken & Street Fighter"
-    return default
-
-
-def get_game_color(gamemode: GameMode) -> str:
-    default = 0x000000
-    if gamemode == GameMode.LEAGUE_OF_LEGENDS_LEC:
-        return 0x0064FF  # Bleu Foncé
-    elif gamemode == GameMode.LEAGUE_OF_LEGENDS_LFL:
-        return 0x00FFF7  # Bleu claire
-    elif gamemode == GameMode.LEAGUE_OF_LEGENDS:
-        return 0xFFFFFF
-    elif gamemode == GameMode.FORTNITE:
-        return 0xBF00EE  # rose
-    elif gamemode == GameMode.VALORANT_VCT_GC:
-        return 0x8500EE  # violet
-    elif gamemode == GameMode.VALORANT_VCT:
-        return 0xEE5700  # rouge
-    elif gamemode == GameMode.VALORANT:
-        return 0xFFFFFF
-    elif gamemode == GameMode.TFT:
-        return 0xFFB200  # doré
-    elif gamemode == GameMode.ROCKET_LEAGUE:
-        return 0x00B226  # vert
-    elif gamemode == GameMode.TAKKENSTREETFIGHTER:
-        return 0xED7F10  # orange
-    return default
-
-
-def check_logo(logo_url: str) -> str:
-    if "http" not in logo_url:
-        return "media/unknown.png"
-    return logo_url
-
-
-def update_timezone(datetime_object: datetime,
-                    timezone_base=pytz.utc,
-                    timezone_dest_str: str = "Europe/Paris") -> datetime:
-    if datetime_object.tzinfo is None:
-        # Si naïf, localisez-le au fuseau horaire de base
-        datetime_object = timezone_base.localize(datetime_object)
-
-    timezone_dest = pytz.timezone(timezone_dest_str)
-    return datetime_object.astimezone(timezone_dest)
-
 
 class Team:
     def __init__(self, name, short, logo_url) -> None:
@@ -306,11 +132,11 @@ class Event:
 
     def today(self) -> bool:
         now = datetime.now(pytz.timezone(TIMEZONE_STR))
-        return self.date.date() == now.date()
+        return self.start.date() == now.date()
 
     def outdated(self) -> bool:
         now = datetime.now(pytz.timezone(TIMEZONE_STR))
-        return self.date < now
+        return self.start < now
 
     def get_short_team(self, title_string) -> tuple[str, str]:
         teamA, teamB = extract_around_vs(title_string)
@@ -318,14 +144,6 @@ class Event:
 
     def get_full_team(self, logo_url) -> str:
         return extract_teamname(logo_url, self.competition_name)
-
-    def today(self) -> bool:
-        now = datetime.now(pytz.timezone(TIMEZONE_STR))
-        return self.start.date() == now.date()
-
-    def outdated(self) -> bool:
-        now = datetime.now(pytz.timezone(TIMEZONE_STR))
-        return self.start < now
 
     def base_embed_attachement_message(self) -> tuple:
         attachments = []
@@ -337,9 +155,9 @@ class Event:
                               color=get_game_color(self.competition_name_enum),
                               timestamp=self.start)
         #  author
-        attachments.append(discord.File("media/KC_default.jpg", filename="KC_default.jpg"))
+        attachments.append(discord.File("media/KC_default.jpg", filename="annonce.jpg"))
         embed.set_author(name=f"{self.message}",
-                         icon_url="attachment://KC_default.jpg")
+                         icon_url="attachment://annonce.jpg")
         #  footer
         attachments.append(discord.File("media/bluewall.jpg",
                                         filename="bluewall.jpg"))
@@ -377,7 +195,7 @@ class Event:
         embed, attachments = self.base_embed_attachement_message()
         
         #  Image VS
-        output_name = f"{self.competition_name}_{self.message}.png".lower().replace(' ', '_').replace('[', '').replace(']', '')
+        output_name = f"{self.competition_name_initial}_{self.message}.png".lower().replace(' ', '_').replace('[', '').replace(']', '').replace(",","")
         file_path = f"media/created/{output_name}"
         file_path = self.generate_image(file_path)
         attachments.append(discord.File(file_path, filename=output_name))
@@ -396,19 +214,3 @@ class Event:
         return generate_image_team(self.team.logo, self.team.name, 1, output_name=output_name)
 
 
-def get_message_info(message):
-    """
-    Dans le channel KC_id on recup chaque message et cette fonction permet 
-      de dire si un message est conforme ou non.
-    """
-    pattern = re.compile(r'\[(.*?)\]\s-\s(.*)')
-
-    # Chercher le modèle dans le texte donné
-    match = pattern.search(message)
-
-    if match:
-        # Extraire les groupes capturés
-        id_event = match.group(1).strip()
-        id_message = match.group(2).strip()
-        return id_event, id_message
-    return None, None

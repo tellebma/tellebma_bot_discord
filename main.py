@@ -144,7 +144,7 @@ async def send_kc_twitch_link_message(event, target_time):
             message_embed.reply(f"{event.title}\n{MESSAGE_DEBUT_GAME}\n{event.stream}")
             logger.info("✅ Message stream envoyé !")
             return
-    logger.info("❌ Message stream erreur")
+    logger.error("❌ Message stream erreur (message not found)")
 
 
 async def send_kc_event_embed_message(event, target_time):
@@ -160,11 +160,6 @@ async def send_kc_event_embed_message(event, target_time):
     # Fonction start
 
     try:
-        LIST_ANNONCE.remove(event.id)
-    except:
-        logger.warning("L'annonce n'a pas pu être retiré de la liste des annonces")
-    
-    try:
         # renew info on this event
         old_event = event
         event_json = kc.get_id_event(event.id)
@@ -173,7 +168,7 @@ async def send_kc_event_embed_message(event, target_time):
             logger.info("Données Mise à jour !")
         
     except:
-        logger.warning("La mise a jour des info de l'event n'a pas réussi.")
+        logger.warning("❌ La mise a jour des info de l'event n'a pas réussi.")
         event = old_event
     
 
@@ -192,6 +187,10 @@ async def send_kc_event_embed_message(event, target_time):
         logging.error("❌ error (send_kc_event_embed_message)",exc_info=e)
         await send_error_message(e, function="send_kc_event_embed_message")
 
+    try:
+        LIST_ANNONCE.remove(event.id)
+    except:
+        logger.warning("❌ L'annonce n'a pas pu être retiré de la liste des annonces")
     # remove embed message
     # new message début game
     # afficher les résultats
