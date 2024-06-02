@@ -10,7 +10,7 @@ import pytz
 
 from discord.ext import commands
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-
+from typing import List, Dict, Any, Optional
 
 from functions import kc
 from functions.log import logger
@@ -30,7 +30,7 @@ if not token:
     exit()
 
 MESSAGE_DEBUT_GAME = cfg["debut_game"]
-LIST_ANNONCE = []
+LIST_ANNONCE_TO_BE_PUBLISHED = []
 
 # Définir la localisation en français
 locale.setlocale(locale.LC_TIME, cfg["local"])
@@ -95,28 +95,37 @@ async def check_today_matches():
     # Fonction start:
     events = kc.get_today_events()
     logger.info(f"{len(events)} a traiter auj.")
+    messages_list = await kc_list_annonce_publie()
+    events_id_published = [m.get("id_event") for m in messages_list]
     for event in events:
-        if event.id in LIST_ANNONCE:
-            # Si l'annonce est déjà prévu, skip
+        if event.id in events_id_published or event.id in LIST_ANNONCE_TO_BE_PUBLISHED:
+            # Si l'annonce est déjà prévu ou déjà envoyé skip
             continue
         # ajout d'une loop pour chaque event.
+        logger.info(f"Annonce: {event.id} - {event.title}")
         target_time_message_event = event.start - datetime.timedelta(hours=2)
         now = kc.update_timezone(datetime.datetime.now(),pytz.timezone(cfg.get("timezone","Europe/Paris")),timezone_dest_str=cfg.get("timezone","Europe/Paris"))
+        
         if target_time_message_event > now:
-            logger.info(f"Annonce kc programmé à {str(target_time_message_event.hour).zfill(2)}h{str(target_time_message_event.minute).zfill(2)}")
+            # on publi l'annonce dans 2h
+            logger.info(f"   ↳  Annonce kc programmé à {str(target_time_message_event.hour).zfill(2)}h{str(target_time_message_event.minute).zfill(2)}")
         else:
+            # On a loupé les 2heures de com
             target_time_message_event = now
-            logger.info(f"Annonce kc à envoyer dès mnt {str(target_time_message_event.hour).zfill(2)}h{str(target_time_message_event.minute).zfill(2)}")
+            logger.info(f"   ↳  Annonce kc à envoyer dès mnt {str(target_time_message_event.hour).zfill(2)}h{str(target_time_message_event.minute).zfill(2)}")
 
         bot.loop.create_task(
             send_kc_event_embed_message(event,
                                         datetime.time(target_time_message_event.hour,
-                                                      target_time_message_event.minute+1)))
-        LIST_ANNONCE.append(event.id)
+                                                      target_time_message_event.minute)))
+        LIST_ANNONCE_TO_BE_PUBLISHED.append(event.id)
+
+        target_time_message_stream = event.start - datetime.timedelta(minutes=5)
         bot.loop.create_task(
             send_kc_twitch_link_message(event,
-                                        datetime.time(event.start.hour,
-                                                      event.start.minute)))
+                                        datetime.time(target_time_message_stream.hour,
+                                                      target_time_message_stream.minute)))
+        logger.info(f"       ↳  Message stream sera envoyé à {str(target_time_message_stream.hour).zfill(2)}h{str(target_time_message_stream.minute).zfill(2)}")
 
 
 async def send_kc_twitch_link_message(event, target_time):
@@ -129,24 +138,29 @@ async def send_kc_twitch_link_message(event, target_time):
                                            datetime.timedelta(days=1),
                                            target_time)
     await asyncio.sleep((future - now).total_seconds())
+
     channel = bot.get_channel(int(cfg['discord']['channels']['kc_id']))
     if not channel:
         return
-    
-    messages = [message async for message in channel.history(limit=10)]
-    
-    for message in messages:
-        id_event, id_embed_message = kc.get_message_info(message.content)
+    messages_list = await kc_list_annonce_publie()
+    logger.info(f"⇒ Annonce avec le lien du stream  ! {event.id} - {event.title}")
+    for message_el in messages_list:
+        id_event = message_el.get("id_event")
+        id_embed_message =  message_el.get("id_embed_message")
+
         if not id_event or not id_embed_message:
             continue
-        if id_event == event.id:
-            message_embed = await channel.fetch_message(int(id_embed_message))
-            message_embed.reply(f"{event.title}\n{MESSAGE_DEBUT_GAME}\n{event.stream}")
-            logger.info("✅ Message stream envoyé !")
-            return
+
+        if id_event != event.id:
+            continue
+
+        message_embed = await channel.fetch_message(int(id_embed_message))
+        message_embed.reply(f"{event.title}\n{MESSAGE_DEBUT_GAME}\n{event.stream}")
+        logger.info("   ↳  ✅ Message stream envoyé !")
+        return
     logger.error("❌ Message stream erreur (message not found)")
-
-
+    
+    
 async def send_kc_event_embed_message(event, target_time):
     """Envoyer un message à une heure précise"""
     await bot.wait_until_ready()
@@ -158,39 +172,35 @@ async def send_kc_event_embed_message(event, target_time):
                                            target_time)
     await asyncio.sleep((future - now).total_seconds())
     # Fonction start
-
+    logger.info(f"⇒ C'est l'heure de l'annonce ! {event.id} - {event.title}")
     try:
         # renew info on this event
         old_event = event
         event_json = kc.get_id_event(event.id)
         if event_json:
             event = kc.Event(event_json)
-            logger.info("Données Mise à jour !")
+            logger.info("   ↳  Données Mise à jour !")
         
     except:
-        logger.warning("❌ La mise a jour des info de l'event n'a pas réussi.")
+        logger.warning("   ↳  ❌ La mise a jour des info de l'event n'a pas réussi.")
         event = old_event
     
-
     try:
-        logger.info("C'est l'heure de l'annonce !")
+        
         embed, attachements = event.get_embed_message()
         channel = bot.get_channel(int(cfg['discord']['channels']['kc']))
         embed_message = await channel.send(embed=embed, files=attachements)
         channel = bot.get_channel(int(cfg['discord']['channels']['kc_id']))
-        if channel:
-            await channel.send(f"[{event.id}] - {embed_message.id}")
-            logger.info("✅ Message sur channel kc_id envoyé")
-            # send : [{event.id}] - {embed_message.id}
+        await channel.send(f"[{event.id}] - {embed_message.id}")
+        logger.info("   ↳  ✅ Message sur channel kc_id envoyé")
+        # send : [{event.id}] - {embed_message.id}
+        LIST_ANNONCE_TO_BE_PUBLISHED.remove(event.id)
  
     except Exception as e:
         logging.error("❌ error (send_kc_event_embed_message)",exc_info=e)
         await send_error_message(e, function="send_kc_event_embed_message")
 
-    try:
-        LIST_ANNONCE.remove(event.id)
-    except:
-        logger.warning("❌ L'annonce n'a pas pu être retiré de la liste des annonces")
+    logger.info("⇐ Fonction annonce ")
     # remove embed message
     # new message début game
     # afficher les résultats
@@ -200,45 +210,47 @@ async def check_kc_result_embed_message():
     """Envoyer un message à une heure précise"""
     await bot.wait_until_ready()
     try:
-        logger.info("Verification des résultats")
-        channel = bot.get_channel(int(cfg['discord']['channels']['kc_id']))
-        if not channel:
-            return
-        messages = [message async for message in channel.history(limit=10)]
-        if messages:
+        logger.info("⇒ Verification des résultats des match KC")
+        messages_list = await kc_list_annonce_publie()
+        if messages_list:
             result_json = kc.get_result()
-        for message in messages:
+        for message_el in messages_list:
+            message = message_el["message"] # Discord Message 
+
             if message.reactions:
                 logger.info(f"❌ des reactions sont présentes sur le message {message.content}, il est alors ignoré")
                 continue
 
-            id_event, id_embed_message = kc.get_message_info(message.content)
+            id_event = message_el.get("id_event")
+            id_embed_message = message_el.get("id_embed_message")
+
             if not id_event or not id_embed_message:
                 logger.warning("Ajout de la reaction '❌' a ce message car non conforme")
                 await message.add_reaction('❌')
                 continue
+
             result = kc.filtre_result(result_json, id_event)
+            logger.info(f"Resultats: {id_event}")
             if not result:
-                logger.info(id_event)
-                logger.info("⏳ pas encore les résultats")
+                logger.info("   ↳  ⏳ pas encore les résultats")
                 # await message.add_reaction('⏳')
                 continue
 
             event = kc.Event(result, ended=True)
-
+            logger.info(f"   ↳  ✅ Annonce terminé: {event.title}")
             channel = bot.get_channel(int(cfg['discord']['channels']['kc']))
             message_embed = await channel.fetch_message(int(id_embed_message))
             if not message_embed:
-                logger.warning("❌ Le message n'a pas été trouvé")
+                logger.warning("   ↳  ❌ Le message n'a pas été trouvé")
                 await message.add_reaction('❌')
             
-            logger.info("✅ Le message a bien été trouvé, génération du message")
+            logger.info("   ↳  ✅ Le message a bien été trouvé, génération du message")
             embed, attachements = event.get_embed_result_message()
             await message_embed.reply(embed=embed, files=attachements)
-            logger.info("✅ Message résultat envoyé, suppression du message sur 'kc_id'.")
+            logger.info("   ↳  ✅ Message résultat envoyé, suppression du message sur 'kc_id'.")
             await message.delete()
             
-        logger.info("Traitement des résultats est terminé")
+        logger.info("⇐ Traitement des résultats est terminé")
 
     except Exception as e:
         logging.error("error (check_kc_result_embed_message)",exc_info=e)
@@ -261,5 +273,27 @@ async def send_error_message(error_message, function=""):
     embed.add_field(name="An unexpected error occurred",
                     value=f"{error_message}", inline=True)
     await channel.send(embed=embed)
+
+
+async def kc_list_annonce_publie()-> Optional[List[Dict[str, Any]]]:
+    """Retourne une liste avec des dictionnaire des élément publié dans le channel kc_id 
+    returns [{
+     "id_event": 1234,
+     "id_embed_message": 123456789
+     "message": discord.Message
+    },..]
+    """
+    channel = bot.get_channel(int(cfg['discord']['channels']['kc_id']))
+    limit_message = int(cfg['discord'].get('limit_message',10))
+    if not channel:
+        return
+    messages = [message async for message in channel.history(limit=limit_message)]
+    list_message = []
+    for message in messages:
+        id_event, id_embed_message = kc.get_message_info(message.content)
+        m = {"id_event":id_event,"id_embed_message":id_embed_message,"message":message}
+        list_message.append(m)
+    return list_message
+
 
 bot.run(token, log_handler=None)
