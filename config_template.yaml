@@ -11,6 +11,11 @@ discord:
     ctv: "id_role_not_used"
     kc: "id_role_not_used"
     netfamily: "id_role_not_used"
+log:
+  log_message_format: "[{asctime}] [{levelname:<8}] {name}: {message}"
+  datetime_format: "%Y-%m-%d %H:%M:%S"
+  backup_count: 5
+  filename: "/app/log/discord.log"
 local: "fr_FR.UTF-8" # for embed messages to be like so Lundi 20 mai
 timezone: "Europe/Paris"
 kc_api_url: "https://api2.kametotv.fr/karmine" # j'ai trouvé la source, merci a vous :) 

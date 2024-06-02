@@ -6,34 +6,18 @@ import locale
 import sys
 import traceback
 import logging
-import logging.handlers
+import pytz
+
 from discord.ext import commands
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
 
 
 from functions import kc
+from functions.log import logger
 
-logger = logging.getLogger('discord')
-logger.setLevel(logging.INFO)
-logging.getLogger('discord.http').setLevel(logging.INFO)
-
-handler = logging.handlers.RotatingFileHandler(
-    filename='log/discord.log',
-    encoding='utf-8',
-    maxBytes=32 * 1024 * 1024,  # 32 MiB
-    backupCount=5,  # Rotate through 5 files
-)
-dt_fmt = '%Y-%m-%d %H:%M:%S'
-formatter = logging.Formatter('[{asctime}] [{levelname:<8}] {name}: {message}', dt_fmt, style='{')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-
-# Configuration du handler de flux pour le terminal
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
-
+# ~~~~~~~~
+#  CONFIG
+# ~~~~~~~~
 with open("config.yaml") as f:
     cfg = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -45,13 +29,19 @@ if not token:
     logger.error("plz fill config.yaml file from config_template.yaml")
     exit()
 
+MESSAGE_DEBUT_GAME = cfg["debut_game"]
+LIST_ANNONCE = []
+
 # Définir la localisation en français
 locale.setlocale(locale.LC_TIME, cfg["local"])
 
+# ~~~~~~~~~
+#  Discord
+# ~~~~~~~~~
 intents = discord.Intents.default()
 intents.message_content = True
 
-MESSAGE_DEBUT_GAME = cfg["debut_game"]
+
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 
@@ -64,11 +54,12 @@ async def on_ready():
         logger.info("✅ - Alert KC active")
         # notification
         scheduler = AsyncIOScheduler()
-        scheduler.add_job(check_today_matches, CronTrigger(hour=4, minute=0))
+        # scheduler.add_job(check_today_matches, CronTrigger(hour=4, minute=0))
+        scheduler.add_job(check_today_matches, 'cron', hour='2,8,12,16,20,23')
         if bot.get_channel(int(cfg['discord']['channels']['kc_id'])):
             logger.info("✅ - Alert KC result active")
             # verification resultat
-            scheduler.add_job(check_kc_result_embed_message, 'cron', hour='9,12,15,18,20,22')
+            scheduler.add_job(check_kc_result_embed_message, 'cron', hour='9,12,15,18,22')
         scheduler.start()
 
     if datetime_lancement.hour >= 4:
@@ -105,13 +96,23 @@ async def check_today_matches():
     events = kc.get_today_events()
     logger.info(f"{len(events)} a traiter auj.")
     for event in events:
+        if event.id in LIST_ANNONCE:
+            # Si l'annonce est déjà prévu, skip
+            continue
         # ajout d'une loop pour chaque event.
         target_time_message_event = event.start - datetime.timedelta(hours=2)
-        logger.info(f"Annonce kc programmé à {str(target_time_message_event.hour).zfill(2)}h{str(target_time_message_event.minute).zfill(2)}")
+        now = kc.update_timezone(datetime.datetime.now(),pytz.timezone(cfg.get("timezone","Europe/Paris")),timezone_dest_str=cfg.get("timezone","Europe/Paris"))
+        if target_time_message_event > now:
+            logger.info(f"Annonce kc programmé à {str(target_time_message_event.hour).zfill(2)}h{str(target_time_message_event.minute).zfill(2)}")
+        else:
+            target_time_message_event = now
+            logger.info(f"Annonce kc à envoyer dès mnt {str(target_time_message_event.hour).zfill(2)}h{str(target_time_message_event.minute).zfill(2)}")
+
         bot.loop.create_task(
             send_kc_event_embed_message(event,
                                         datetime.time(target_time_message_event.hour,
-                                                      target_time_message_event.minute)))
+                                                      target_time_message_event.minute+1)))
+        LIST_ANNONCE.append(event.id)
         bot.loop.create_task(
             send_kc_twitch_link_message(event,
                                         datetime.time(event.start.hour,
@@ -143,7 +144,7 @@ async def send_kc_twitch_link_message(event, target_time):
             message_embed.reply(f"{event.title}\n{MESSAGE_DEBUT_GAME}\n{event.stream}")
             logger.info("✅ Message stream envoyé !")
             return
-    logger.info("❌ Message stream erreur")
+    logger.error("❌ Message stream erreur (message not found)")
 
 
 async def send_kc_event_embed_message(event, target_time):
@@ -156,8 +157,21 @@ async def send_kc_event_embed_message(event, target_time):
                                            datetime.timedelta(days=1),
                                            target_time)
     await asyncio.sleep((future - now).total_seconds())
- 
     # Fonction start
+
+    try:
+        # renew info on this event
+        old_event = event
+        event_json = kc.get_id_event(event.id)
+        if event_json:
+            event = kc.Event(event_json)
+            logger.info("Données Mise à jour !")
+        
+    except:
+        logger.warning("❌ La mise a jour des info de l'event n'a pas réussi.")
+        event = old_event
+    
+
     try:
         logger.info("C'est l'heure de l'annonce !")
         embed, attachements = event.get_embed_message()
@@ -173,6 +187,10 @@ async def send_kc_event_embed_message(event, target_time):
         logging.error("❌ error (send_kc_event_embed_message)",exc_info=e)
         await send_error_message(e, function="send_kc_event_embed_message")
 
+    try:
+        LIST_ANNONCE.remove(event.id)
+    except:
+        logger.warning("❌ L'annonce n'a pas pu être retiré de la liste des annonces")
     # remove embed message
     # new message début game
     # afficher les résultats
@@ -180,6 +198,7 @@ async def send_kc_event_embed_message(event, target_time):
 
 async def check_kc_result_embed_message():
     """Envoyer un message à une heure précise"""
+    await bot.wait_until_ready()
     try:
         logger.info("Verification des résultats")
         channel = bot.get_channel(int(cfg['discord']['channels']['kc_id']))
