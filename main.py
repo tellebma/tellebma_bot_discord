@@ -139,9 +139,12 @@ async def send_kc_twitch_link_message(event, target_time):
                                            target_time)
     await asyncio.sleep((future - now).total_seconds())
 
+    logger.info(f"⇒ Message stream twitch ! {event.id} - {event.title}")
     channel = bot.get_channel(int(cfg['discord']['channels']['kc_id']))
     if not channel:
+        logger.error("❌ Channel kc_id not found")
         return
+    
     try:
         # renew info on this event
         old_event = event
@@ -166,10 +169,16 @@ async def send_kc_twitch_link_message(event, target_time):
         if id_event != event.id:
             continue
 
+        channel = bot.get_channel(int(cfg['discord']['channels']['kc']))
+        if not channel:
+            logger.error("❌ Channel kc not found")
+            return
+        
         message_embed = await channel.fetch_message(int(id_embed_message))
         message_embed.reply(f"{event.title}\n{MESSAGE_DEBUT_GAME}\n{event.stream}")
         logger.info("   ↳  ✅ Message stream envoyé !")
         return
+    
     logger.error("❌ Message stream erreur (message not found)")
     
     
@@ -201,8 +210,15 @@ async def send_kc_event_embed_message(event, target_time):
         
         embed, attachements = event.get_embed_message()
         channel = bot.get_channel(int(cfg['discord']['channels']['kc']))
+        if not channel:
+            logger.error("❌ Channel KC not found")
+            return
         embed_message = await channel.send(embed=embed, files=attachements)
         channel = bot.get_channel(int(cfg['discord']['channels']['kc_id']))
+        if not channel:
+            logger.error("❌ Channel kc_id not found")
+            return
+        
         await channel.send(f"[{event.id}] - {embed_message.id}")
         logger.info("   ↳  ✅ Message sur channel kc_id envoyé")
         # send : [{event.id}] - {embed_message.id}
