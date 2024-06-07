@@ -175,7 +175,7 @@ async def send_kc_twitch_link_message(event, target_time):
             return
         
         message_embed = await channel.fetch_message(int(id_embed_message))
-        message_embed.reply(f"{event.title}\n{MESSAGE_DEBUT_GAME}\n{event.stream}")
+        await message_embed.reply(f"{event.title}\n{event.stream}")
         logger.info("   ↳  ✅ Message stream envoyé !")
         return
     
