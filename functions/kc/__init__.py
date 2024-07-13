@@ -95,7 +95,7 @@ class Event:
             self.team = Team(self.get_full_team(logoA), short_teamA, logoA)
             self.message = f"{self.team.name}"
             if not self.ended:
-                self.description = f"L'équipe {self.team.name} ({get_game_str(self.competition_name_enum)}) jouera à {self.start.hour}h !"
+                self.description = f"L'équipe {self.team.name} ({get_game_str(self.competition_name_enum)}) jouera à {self.start.hour}h{self.start.minute if self.start.minute != 0 else ''} !"
             else:
                 self.description = f"L'équipe {self.team.name} à {self.score}!"
         else:
@@ -108,7 +108,7 @@ class Event:
             self.team_exterieur = Team(self.get_full_team(logoB), short_teamB, logoB)
             self.message = f"{self.team_domicile} vs {self.team_exterieur}"
             if not self.ended:
-                self.description = f"{self.team_domicile} vs {self.team_exterieur} ({get_game_str(self.competition_name_enum)}) ce sera à {self.start.hour}h !"
+                self.description = f"{self.team_domicile} vs {self.team_exterieur} ({get_game_str(self.competition_name_enum)}) ce sera à {self.start.hour}h{self.start.minute if self.start.minute != 0 else ''} !"
             else:
                 if self.score == "WIN":
                     self.score_translate = "Gagné"
