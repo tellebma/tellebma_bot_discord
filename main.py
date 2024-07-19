@@ -257,9 +257,6 @@ async def check_kc_result_embed_message():
         for message_el in messages_list:
             message = message_el["message"] # Discord Message 
 
-            if message.reactions:
-                logger.info(f"❌ {message.reactions}")
-
             id_event = message_el.get("id_event")
             id_embed_message = message_el.get("id_embed_message")
 
@@ -273,16 +270,18 @@ async def check_kc_result_embed_message():
             if not result:
                 logger.info("   ↳  ⏳ pas encore les résultats")
                 logger.debug(f"          DEBUG: reactions message {message.reactions}")
-                for emoji in decompte:
+                for i in range(0,len(decompte)):
+                    res=False
                     for r in message.reactions:
-                        if r.emoji == emoji:
+                        if r.emoji == decompte[i]:
                             res=True
                             break
                     if res:
-                        await message.add_reaction(emoji)
+                        await message.clear_reactions()
+                        await message.add_reaction(decompte[i+1])
                         logger.info(f"          DEBUG: reactions message {message.reactions}")
                         break
-                    if emoji == "9️⃣":
+                    if decompte[i] == "9️⃣":
                         await message.delete()
                 continue
 
