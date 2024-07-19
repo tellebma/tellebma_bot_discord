@@ -280,12 +280,12 @@ async def check_kc_result_embed_message():
                             res=True
                             break
                     if res:
+                        if decompte[i] == "9️⃣":
+                            await message.delete()
+                            continue
                         await message.clear_reactions()
                         await message.add_reaction(decompte[i+1])
-                        logger.info(f"          DEBUG: reactions message {message.reactions}")
                         break
-                    if decompte[i] == "9️⃣":
-                        await message.delete()
                 continue
 
             event = kc.Event(result, ended=True)
