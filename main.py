@@ -102,6 +102,9 @@ async def delete(ctx, number_of_messages: int):
     await ctx.send(f'✅ {len(deleted) - 1} messages supprimés.', delete_after=5)
     logger.info(f'✅ {len(deleted) - 1} messages supprimés - {ctx.author}')
 
+@bot.command(name='version', help='Affiche la version actuel du bot.')
+async def version(ctx):
+    await ctx.send(f'Le bot est en version {version}\nhttps://github.com/tellebma/tellebma_bot_discord/releases', delete_after=120)
 
 async def check_today_matches():
     """Envoyer un message à une heure précise"""
