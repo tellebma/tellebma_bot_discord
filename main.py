@@ -104,6 +104,7 @@ async def delete(ctx, number_of_messages: int):
 
 @bot.command(name='version', help='Affiche la version actuel du bot.')
 async def version(ctx):
+    await ctx.message.delete()
     await ctx.send(f'Le bot est en version {version_number}\nhttps://github.com/tellebma/tellebma_bot_discord/releases', delete_after=120)
 
 async def check_today_matches():
