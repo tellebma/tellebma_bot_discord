@@ -23,7 +23,7 @@ with open("config.yaml") as f:
     cfg = yaml.load(f, Loader=yaml.FullLoader)
 
 with open("version.yaml") as f:
-    version = yaml.load(f, Loader=yaml.FullLoader)["version"]
+    version_number = yaml.load(f, Loader=yaml.FullLoader)["version"]
 
 token = cfg.get("token",False)
 if not token:
@@ -60,7 +60,7 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 @bot.event
 async def on_ready():
     datetime_lancement = datetime.datetime.now()
-    logger.info(f"Version of this bot {version}")
+    logger.info(f"Version of this bot {version_number}")
     logger.info(f'We have logged in as {bot.user}')  
     if bot.get_channel(int(cfg['discord']['channels']['kc'])):
         logger.info("✅ - Alert KC active")
@@ -104,7 +104,7 @@ async def delete(ctx, number_of_messages: int):
 
 @bot.command(name='version', help='Affiche la version actuel du bot.')
 async def version(ctx):
-    await ctx.send(f'Le bot est en version {version}\nhttps://github.com/tellebma/tellebma_bot_discord/releases', delete_after=120)
+    await ctx.send(f'Le bot est en version {version_number}\nhttps://github.com/tellebma/tellebma_bot_discord/releases', delete_after=120)
 
 async def check_today_matches():
     """Envoyer un message à une heure précise"""
