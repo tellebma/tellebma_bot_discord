@@ -23,7 +23,7 @@ def get_game_img(gamemode: GameMode) -> str:
     elif gamemode == GameMode.ROCKET_LEAGUE:
         return "media/RL.png"
     elif gamemode == GameMode.TAKKENSTREETFIGHTER:
-        return "media/" + random.choice("Takken.png", "Street_Fighter_6.png") 
+        return "media/" + random.choice(["Takken.png", "Street_Fighter_6.png"]) 
     return default
 
 

@@ -7,6 +7,7 @@ import sys
 import traceback
 import logging
 import pytz
+import traceback
 
 from discord.ext import commands
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -30,10 +31,21 @@ if not token:
     exit()
 
 MESSAGE_DEBUT_GAME = cfg["debut_game"]
-LIST_ANNONCE_TO_BE_PUBLISHED = []
 
 # Définir la localisation en français
 locale.setlocale(locale.LC_TIME, cfg["local"])
+
+decompte = [
+    "1️⃣",
+    "2️⃣",
+    "3️⃣",
+    "4️⃣",
+    "5️⃣",
+    "6️⃣",
+    "7️⃣",
+    "8️⃣",
+    "9️⃣"
+]
 
 # ~~~~~~~~~
 #  Discord
@@ -72,7 +84,9 @@ async def on_error(event, *args, **kwargs):
     # Handle all unhandled exceptions globally
     logging.error(traceback.format_exc())
     traceback.print_exc()
-    await send_error_message(sys.exc_info())
+    
+
+    await send_error_message(traceback.format_exc(), function="on_error")
 
 
 @bot.command(name='delete', help='Supprime les X messages précédents dans le canal.')
@@ -98,7 +112,7 @@ async def check_today_matches():
     messages_list = await kc_list_annonce_publie()
     events_id_published = [m.get("id_event") for m in messages_list]
     for event in events:
-        if event.id in events_id_published or event.id in LIST_ANNONCE_TO_BE_PUBLISHED:
+        if event.id in events_id_published:
             # Si l'annonce est déjà prévu ou déjà envoyé skip
             continue
         # ajout d'une loop pour chaque event.
@@ -118,7 +132,6 @@ async def check_today_matches():
             send_kc_event_embed_message(event,
                                         datetime.time(target_time_message_event.hour,
                                                       target_time_message_event.minute)))
-        LIST_ANNONCE_TO_BE_PUBLISHED.append(event.id)
 
         target_time_message_stream = event.start - datetime.timedelta(minutes=5)
         bot.loop.create_task(
@@ -222,11 +235,10 @@ async def send_kc_event_embed_message(event, target_time):
         await channel.send(f"[{event.id}] - {embed_message.id}")
         logger.info("   ↳  ✅ Message sur channel kc_id envoyé")
         # send : [{event.id}] - {embed_message.id}
-        LIST_ANNONCE_TO_BE_PUBLISHED.remove(event.id)
  
     except Exception as e:
         logging.error("❌ error (send_kc_event_embed_message)",exc_info=e)
-        await send_error_message(e, function="send_kc_event_embed_message")
+        await send_error_message(traceback.format_exc(), function="send_kc_event_embed_message")
 
     logger.info("⇐ Fonction annonce ")
     # remove embed message
@@ -245,10 +257,6 @@ async def check_kc_result_embed_message():
         for message_el in messages_list:
             message = message_el["message"] # Discord Message 
 
-            if message.reactions:
-                logger.info(f"❌ des reactions sont présentes sur le message {message.content}, il est alors ignoré")
-                continue
-
             id_event = message_el.get("id_event")
             id_embed_message = message_el.get("id_embed_message")
 
@@ -261,7 +269,20 @@ async def check_kc_result_embed_message():
             logger.info(f"Resultats: {id_event}")
             if not result:
                 logger.info("   ↳  ⏳ pas encore les résultats")
-                # await message.add_reaction('⏳')
+                logger.debug(f"          DEBUG: reactions message {message.reactions}")
+                for i in range(0,len(decompte)):
+                    res=False
+                    for r in message.reactions:
+                        if r.emoji == decompte[i]:
+                            res=True
+                            break
+                    if res:
+                        await message.clear_reactions()
+                        await message.add_reaction(decompte[i+1])
+                        logger.info(f"          DEBUG: reactions message {message.reactions}")
+                        break
+                    if decompte[i] == "9️⃣":
+                        await message.delete()
                 continue
 
             event = kc.Event(result, ended=True)
@@ -281,15 +302,15 @@ async def check_kc_result_embed_message():
         logger.info("⇐ Traitement des résultats est terminé")
 
     except Exception as e:
-        logging.error("error (check_kc_result_embed_message)",exc_info=e)
-        await send_error_message(e, function="check_kc_result_embed_message")
-        await send_error_message(sys.exc_info(), function="check_kc_result_embed_message")
+        logging.error("error (check_kc_result_embed_message, {e})",exc_info=e)
+        await send_error_message(traceback.format_exc(), function="check_kc_result_embed_message")
     # remove embed message
     # new message début game
     # afficher les résultats
 
 
-async def send_error_message(error_message, function=""):
+async def send_error_message(error ,function=""):
+    
     channel = bot.get_channel(int(cfg['discord']['channels']['error']))
     date = datetime.datetime.now().strftime('%A %d %B %Hh%M').capitalize()
     embed = discord.Embed(title=f"❌ ERROR HANDLER {function}",
@@ -298,8 +319,8 @@ async def send_error_message(error_message, function=""):
     embed.add_field(name="",
                     value="",
                     inline=True)
-    embed.add_field(name="An unexpected error occurred",
-                    value=f"{error_message}", inline=True)
+    embed.add_field(name=f"An unexpected error occurred ",
+                    value=f"{error}", inline=True)
     await channel.send(embed=embed)
 
 
@@ -311,17 +332,23 @@ async def kc_list_annonce_publie()-> Optional[List[Dict[str, Any]]]:
      "message": discord.Message
     },..]
     """
-    channel = bot.get_channel(int(cfg['discord']['channels']['kc_id']))
-    limit_message = int(cfg['discord'].get('limit_message',10))
-    if not channel:
-        return
-    messages = [message async for message in channel.history(limit=limit_message)]
-    list_message = []
-    for message in messages:
-        id_event, id_embed_message = kc.get_message_info(message.content)
-        m = {"id_event":id_event,"id_embed_message":id_embed_message,"message":message}
-        list_message.append(m)
-    return list_message
+    try:
+
+        channel = bot.get_channel(int(cfg['discord']['channels']['kc_id']))
+        limit_message = int(cfg['discord'].get('limit_message',10))
+        if not channel:
+            return
+        messages = [message async for message in channel.history(limit=limit_message)]
+        list_message = []
+        for message in messages:
+            id_event, id_embed_message = kc.get_message_info(message.content)
+            m = {"id_event":id_event,"id_embed_message":id_embed_message,"message":message}
+            list_message.append(m)
+        return list_message
+    except Exception as e:
+        logging.error("error (kc_list_annonce_publie)",exc_info=e)
+        await send_error_message(traceback.format_exc(), function="kc_list_annonce_publie")
+
 
 
 bot.run(token, log_handler=None)
