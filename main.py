@@ -67,11 +67,11 @@ async def on_ready():
         # notification
         scheduler = AsyncIOScheduler()
         # scheduler.add_job(check_today_matches, CronTrigger(hour=4, minute=0))
-        scheduler.add_job(check_today_matches, 'cron', hour='2,8,12,16,20,23')
+        scheduler.add_job(check_today_matches, 'cron', hour='8,12,16,20,23')
         if bot.get_channel(int(cfg['discord']['channels']['kc_id'])):
             logger.info("✅ - Alert KC result active")
             # verification resultat
-            scheduler.add_job(check_kc_result_embed_message, 'cron', hour='9,12,15,18,22')
+            scheduler.add_job(check_kc_result_embed_message, 'cron', hour='9,20,22')
         scheduler.start()
 
     if datetime_lancement.hour >= 4:
@@ -115,6 +115,8 @@ async def check_today_matches():
     logger.info(f"{len(events)} a traiter auj.")
     messages_list = await kc_list_annonce_publie()
     events_id_published = [m.get("id_event") for m in messages_list]
+    logger.debug(f"check_today_matches, {messages_list=}")
+    logger.debug(f"check_today_matches, {events_id_published=}")
     for event in events:
         if event.id in events_id_published:
             # Si l'annonce est déjà prévu ou déjà envoyé skip
@@ -348,6 +350,7 @@ async def kc_list_annonce_publie()-> Optional[List[Dict[str, Any]]]:
             id_event, id_embed_message = kc.get_message_info(message.content)
             m = {"id_event":id_event,"id_embed_message":id_embed_message,"message":message}
             list_message.append(m)
+        logging.info(f"Message dans kc_list_annonce_publié => {list_message}")
         return list_message
     except Exception as e:
         logging.error("error (kc_list_annonce_publie)",exc_info=e)
