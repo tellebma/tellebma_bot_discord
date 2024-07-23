@@ -16,7 +16,10 @@ log:
   datetime_format: "%Y-%m-%d %H:%M:%S"
   backup_count: 5
   filename: "/app/log/discord.log"
+kc:
+  file_id_temp: "kc_id_match.json"
+  api_url: "https://api2.kametotv.fr/karmine" # j'ai trouvé la source, merci a vous :) 
 local: "fr_FR.UTF-8" # for embed messages to be like so Lundi 20 mai
 timezone: "Europe/Paris"
-kc_api_url: "https://api2.kametotv.fr/karmine" # j'ai trouvé la source, merci a vous :) 
+
 admin: "id_if_the_admin_to_mention_in_errors"
