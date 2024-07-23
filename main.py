@@ -115,7 +115,7 @@ async def check_today_matches():
     logger.info(f"{len(events)} a traiter auj.")
     messages_list = await kc_list_annonce_publie()
     events_id_published = [m.get("id_event") for m in messages_list]
-    logger.debug(f"check_today_matches, {messages_list=}")
+    
     logger.debug(f"check_today_matches, {events_id_published=}")
     for event in events:
         if event.id in events_id_published:
@@ -339,23 +339,31 @@ async def kc_list_annonce_publie()-> Optional[List[Dict[str, Any]]]:
     },..]
     """
     try:
-
-        channel = bot.get_channel(int(cfg['discord']['channels']['kc_id']))
-        limit_message = int(cfg['discord'].get('limit_message',10))
+        # Récupération du channel à chaque appel pour obtenir les messages les plus récents
+        channel_id = int(cfg['discord']['channels']['kc_id'])
+        channel = bot.get_channel(channel_id)
+        limit_message = int(cfg['discord'].get('limit_message', 10))
+        
         if not channel:
-            return
+            logging.error(f"Channel with ID {channel_id} not found")
+            return None
+
+        # Récupération asynchrone des messages du channel
         messages = [message async for message in channel.history(limit=limit_message)]
         list_message = []
+        
         for message in messages:
             id_event, id_embed_message = kc.get_message_info(message.content)
-            m = {"id_event":id_event,"id_embed_message":id_embed_message,"message":message}
+            m = {"id_event": id_event, "id_embed_message": id_embed_message, "message": message}
             list_message.append(m)
-        logging.info(f"Message dans kc_list_annonce_publié => {list_message}")
+        
+        logging.info(f"Messages in kc_list_annonce_publie => {list_message}")
         return list_message
-    except Exception as e:
-        logging.error("error (kc_list_annonce_publie)",exc_info=e)
-        await send_error_message(traceback.format_exc(), function="kc_list_annonce_publie")
 
+    except Exception as e:
+        logging.error("Error in kc_list_annonce_publie", exc_info=e)
+        await send_error_message(traceback.format_exc(), function="kc_list_annonce_publie")
+        return None
 
 
 bot.run(token, log_handler=None)
