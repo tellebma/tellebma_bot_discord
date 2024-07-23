@@ -45,7 +45,7 @@ class Event:
         self.json_object = json_object
         self.competition_name = json_object.get("competition_name")
         self.competition_name_enum = GameMode(self.competition_name)
-        self.competition_name_initial = json_object.get("initial")
+        self.competition_name_initial = json_object.get("initial").replace("/","_")
         self.link_competition = json_object.get("link")
         date_string = json_object.get("start").replace("Z", "+00:00")
         self.start = update_timezone(datetime.fromisoformat(date_string) +

@@ -47,7 +47,6 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 @bot.event
 async def on_ready():
-    datetime_lancement = datetime.datetime.now()
     logger.info(f"Version of this bot {version_number}")
     logger.info(f'We have logged in as {bot.user}')  
     if bot.get_channel(int(cfg['discord']['channels']['kc'])):
@@ -96,11 +95,11 @@ async def version(ctx):
     await ctx.send(f'Le bot est en version {version_number}\nhttps://github.com/tellebma/tellebma_bot_discord/releases', delete_after=120)
 
 @bot.command(name='liste_kc', help='Retourne la liste des éléments dans le fichier kc_id_match.json.')
-@commands.has_role(cfg['discord']['roles']['kc'])
+@commands.has_role(int(cfg['discord']['roles']['kc']))
 async def liste_kc(ctx):
     await ctx.message.delete()
     try:
-        with open(cfg["kc"]["file_id_temp"], "r") as file:
+        with open("kc_id_match.json", "r") as file:
             data = json.load(file)
         
         if not data:
@@ -108,10 +107,21 @@ async def liste_kc(ctx):
             return
         
         message = "Liste des éléments dans kc_id_match.json:\n"
-        for item in data:
-            message += f"ID Événement: {item['id_event']}, ID Embed Message: {item['id_embed_message']}\n"
+        table_header = "| ID Événement | ID Embed Message | Titre |\n"
+        table_header += "|--------------|------------------|-------|\n"
         
-        await ctx.send(message, delete_after=120)
+        table_rows = ""
+        for item in data:
+            table_rows += f"| {item['id_event']} | {item['id_embed_message']} | {item['title']} |\n"
+        
+        message += table_header + table_rows
+        
+        # Discord has a message limit of 2000 characters, so we may need to split the message
+        if len(message) > 2000:
+            await ctx.send("Le message est trop long pour être affiché en une seule fois. Veuillez vérifier le fichier kc_id_match.json.", delete_after=120)
+        else:
+            await ctx.send(f"```\n{message}\n```", delete_after=120)
+        
     except FileNotFoundError:
         await ctx.send("Le fichier kc_id_match.json n'a pas été trouvé.", delete_after=120)
     except Exception as e:
@@ -137,7 +147,7 @@ async def check_today_matches():
             # Si l'annonce est déjà prévu ou déjà envoyé skip
             continue
         # ajout d'une loop pour chaque event.
-        logger.info(f"Annonce: {event.id} - {event.title}")
+        logger.info(f"Annonce: {event.id=} - {event.title=}")
         target_time_message_event = event.start - datetime.timedelta(hours=2)
         now = kc.update_timezone(datetime.datetime.now(), pytz.timezone(cfg.get("timezone", "Europe/Paris")), timezone_dest_str=cfg.get("timezone", "Europe/Paris"))
         
@@ -171,7 +181,7 @@ async def send_kc_twitch_link_message(event, target_time):
         future = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), target_time)
     await asyncio.sleep((future - now).total_seconds())
 
-    logger.info(f"⇒ Message stream twitch ! {event.id} - {event.title}")
+    logger.info(f"⇒ Message stream twitch ! {event.id=} - {event.title=}")
     
     try:
         # renew info on this event
@@ -186,7 +196,7 @@ async def send_kc_twitch_link_message(event, target_time):
         event = old_event
 
     messages_list = await kc_list_annonce_publie()
-    logger.info(f"⇒ Annonce avec le lien du stream  ! {event.id} - {event.title}")
+    logger.info(f"⇒ Annonce avec le lien du stream  ! {event.id=} - {event.title=}")
     for message_el in messages_list:
         id_event = message_el.get("id_event")
         id_embed_message =  message_el.get("id_embed_message")
@@ -209,7 +219,7 @@ async def send_kc_event_embed_message(event, target_time):
         future = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), target_time)
     await asyncio.sleep((future - now).total_seconds())
     # Fonction start
-    logger.info(f"⇒ C'est l'heure de l'annonce ! {event.id} - {event.title}")
+    logger.info(f"⇒ C'est l'heure de l'annonce ! {event.id=} - {event.title=}")
     try:
         # renew info on this event
         old_event = event
@@ -231,7 +241,7 @@ async def send_kc_event_embed_message(event, target_time):
         embed_message = await channel.send(embed=embed, files=attachements)
         
         # Update the JSON file with the new event
-        await update_kc_id_match_json(event.id, embed_message.id)
+        await update_kc_id_match_json(event.id, embed_message.id, title=event.title)
         logger.info("   ↳  ✅ Message sur channel kc envoyé et mis à jour dans le fichier JSON")
  
     except Exception as e:
@@ -260,7 +270,7 @@ async def check_kc_result_embed_message():
                 continue
 
             result = kc.filtre_result(result_json, id_event)
-            logger.info(f"Resultats: {id_event} {id_embed_message}")
+            logger.info(f"Resultats: {id_event=} {id_embed_message=}")
             if not result:
                 logger.info("   ↳  ⏳ pas encore les résultats")
                 continue
@@ -268,8 +278,9 @@ async def check_kc_result_embed_message():
             event = kc.Event(result, ended=True)
             logger.info(f"   ↳  ✅ Annonce terminé: {event.title}")
             channel = bot.get_channel(int(cfg['discord']['channels']['kc']))
+            logger.info(f"{id_embed_message=}")
             message_embed = await channel.fetch_message(int(id_embed_message))
-            
+
             if not message_embed:
                 logger.warning("   ↳  ❌ Le message n'a pas été trouvé")
             
@@ -329,11 +340,11 @@ async def kc_list_annonce_publie() -> Optional[List[Dict[str, Any]]]:
         return []
 
 
-async def update_kc_id_match_json(id_event: int, id_embed_message: int):
+async def update_kc_id_match_json(id_event: int, id_embed_message: int, title: str = "Null"):
     """Mise à jour du fichier JSON avec un nouvel événement."""
     try:
         messages_list = await kc_list_annonce_publie()
-        messages_list.append({"id_event": id_event, "id_embed_message": id_embed_message})
+        messages_list.append({"id_event": id_event, "id_embed_message": id_embed_message, "title": title})
         
         with open(cfg["kc"]["file_id_temp"], "w") as file:
             json.dump(messages_list, file)
