@@ -49,11 +49,12 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 async def on_ready():
     logger.info(f"Version of this bot {version_number}")
     logger.info(f'We have logged in as {bot.user}')  
+    await send_error_message(error="",function="On READY", title="♻️ BOT RESTARTED")
     if bot.get_channel(int(cfg['discord']['channels']['kc'])):
         logger.info("✅ - Alert KC active")
         # notification
         scheduler = AsyncIOScheduler()
-        scheduler.add_job(check_kc_result_embed_message, 'cron', hour='9,20,22')
+        scheduler.add_job(check_kc_result_embed_message, 'cron', hour='12,22')
         scheduler.add_job(check_today_matches, 'cron', hour='8,12,16,20,23')
         logger.info("✅ - Scheduler set up")
         scheduler.start()
@@ -138,7 +139,7 @@ async def check_today_matches():
     # Fonction start:
     events = kc.get_today_events()
     logger.info(f"{len(events)} a traiter auj.")
-    messages_list = await kc_list_annonce_publie()
+    messages_list = kc_list_annonce_publie()
     events_id_published = [m.get("id_event") for m in messages_list]
     
     logger.debug(f"check_today_matches, {events_id_published=}")
@@ -158,7 +159,7 @@ async def check_today_matches():
             # On a loupé les 2heures de com
             target_time_message_event = now
             logger.info(f"   ↳  Annonce kc à envoyer dès mnt {str(target_time_message_event.hour).zfill(2)}h{str(target_time_message_event.minute).zfill(2)}")
-
+        
         bot.loop.create_task(
             send_kc_event_embed_message(event,
                                         datetime.time(target_time_message_event.hour,
@@ -195,7 +196,7 @@ async def send_kc_twitch_link_message(event, target_time):
         logger.warning("   ↳  ❌ La mise a jour des info de l'event n'a pas réussi.")
         event = old_event
 
-    messages_list = await kc_list_annonce_publie()
+    messages_list = kc_list_annonce_publie()
     logger.info(f"⇒ Annonce avec le lien du stream  ! {event.id=} - {event.title=}")
     for message_el in messages_list:
         id_event = message_el.get("id_event")
@@ -259,7 +260,7 @@ async def check_kc_result_embed_message():
     await bot.wait_until_ready()
     try:
         logger.info("⇒ Verification des résultats des match KC")
-        messages_list = await kc_list_annonce_publie()
+        messages_list = kc_list_annonce_publie()
         if messages_list:
             result_json = kc.get_result()
         for message_el in messages_list:
@@ -279,10 +280,16 @@ async def check_kc_result_embed_message():
             logger.info(f"   ↳  ✅ Annonce terminé: {event.title}")
             channel = bot.get_channel(int(cfg['discord']['channels']['kc']))
             logger.info(f"{id_embed_message=}")
-            message_embed = await channel.fetch_message(int(id_embed_message))
+            message_embed = False
+            try:
+                message_embed = await channel.fetch_message(int(id_embed_message))
+            except discord.errors.NotFound as e: 
+                logger.warning("   ↳  🟠 Le message n'a pas été trouvé")
 
             if not message_embed:
-                logger.warning("   ↳  ❌ Le message n'a pas été trouvé")
+                logger.warning("       ↳  ❌ Le message n'a pas été trouvé")
+                remove_kc_id_match_json(id_event)
+                continue
             
             logger.info("   ↳  ✅ Le message a bien été trouvé, génération du message")
             embed, attachements = event.get_embed_result_message()
@@ -290,7 +297,7 @@ async def check_kc_result_embed_message():
             logger.info("   ↳  ✅ Message résultat envoyé, suppression de l'entrée dans le fichier JSON.")
             
             # Remove the entry from the JSON file
-            await remove_kc_id_match_json(id_event)
+            remove_kc_id_match_json(id_event)
             
         logger.info("⇐ Traitement des résultats est terminé")
 
@@ -302,22 +309,23 @@ async def check_kc_result_embed_message():
     # afficher les résultats
 
 
-async def send_error_message(error ,function=""):
+async def send_error_message(error ,function="", title="❌ ERROR HANDLER"):
     
     channel = bot.get_channel(int(cfg['discord']['channels']['error']))
     date = datetime.datetime.now().strftime('%A %d %B %Hh%M').capitalize()
-    embed = discord.Embed(title=f"❌ ERROR HANDLER {function}",
+    embed = discord.Embed(title=f"{title} {function}",
                           description=date,
                           color=0xFF0000)
     embed.add_field(name="",
                     value="",
                     inline=True)
-    embed.add_field(name=f"An unexpected error occurred ",
+    if error:
+        embed.add_field(name=f"An unexpected error occurred ",
                     value=f"{error}", inline=True)
     await channel.send(embed=embed)
 
 
-async def kc_list_annonce_publie() -> Optional[List[Dict[str, Any]]]:
+def kc_list_annonce_publie() -> Optional[List[Dict[str, Any]]]:
     """Retourne une liste avec des dictionnaire des élément publié dans le fichier JSON 
     returns [{
      "id_event": 1234,
@@ -336,14 +344,13 @@ async def kc_list_annonce_publie() -> Optional[List[Dict[str, Any]]]:
         return []
     except Exception as e:
         logging.error("Error in kc_list_annonce_publie", exc_info=e)
-        await send_error_message(traceback.format_exc(), function="kc_list_annonce_publie")
         return []
 
 
-async def update_kc_id_match_json(id_event: int, id_embed_message: int, title: str = "Null"):
+def update_kc_id_match_json(id_event: int, id_embed_message: int, title: str = "Null"):
     """Mise à jour du fichier JSON avec un nouvel événement."""
     try:
-        messages_list = await kc_list_annonce_publie()
+        messages_list = kc_list_annonce_publie()
         messages_list.append({"id_event": id_event, "id_embed_message": id_embed_message, "title": title})
         
         with open(cfg["kc"]["file_id_temp"], "w") as file:
@@ -353,13 +360,12 @@ async def update_kc_id_match_json(id_event: int, id_embed_message: int, title: s
 
     except Exception as e:
         logging.error("Error in update_kc_id_match_json", exc_info=e)
-        await send_error_message(traceback.format_exc(), function="update_kc_id_match_json")
 
 
-async def remove_kc_id_match_json(id_event: int):
+def remove_kc_id_match_json(id_event: int):
     """Suppression d'un événement du fichier JSON."""
     try:
-        messages_list = await kc_list_annonce_publie()
+        messages_list = kc_list_annonce_publie()
         messages_list = [m for m in messages_list if m["id_event"] != id_event]
         
         with open(cfg["kc"]["file_id_temp"], "w") as file:
@@ -369,8 +375,7 @@ async def remove_kc_id_match_json(id_event: int):
 
     except Exception as e:
         logging.error("Error in remove_kc_id_match_json", exc_info=e)
-        await send_error_message(traceback.format_exc(), function="remove_kc_id_match_json")
 
 
-
-bot.run(token, log_handler=None)
+if __name__ == '__main__':
+    bot.run(token, log_handler=None)
