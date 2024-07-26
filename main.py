@@ -242,7 +242,7 @@ async def send_kc_event_embed_message(event, target_time):
         embed_message = await channel.send(embed=embed, files=attachements)
         
         # Update the JSON file with the new event
-        await update_kc_id_match_json(event.id, embed_message.id, title=event.title)
+        update_kc_id_match_json(event.id, embed_message.id, title=event.title)
         logger.info("   ↳  ✅ Message sur channel kc envoyé et mis à jour dans le fichier JSON")
  
     except Exception as e:
