@@ -57,6 +57,8 @@ async def on_ready():
         scheduler.add_job(check_kc_result_embed_message, 'cron', hour='12,22', max_instances=1)
         scheduler.add_job(check_today_matches, 'cron', hour='8,12,16,20,23', max_instances=1)
         logger.info("✅ - Scheduler set up")
+        l_jobs = scheduler.get_jobs()
+        logger.info(f"Listes des jobs lancé: {l_jobs}")
         scheduler.start()
 
     
