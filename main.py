@@ -54,8 +54,8 @@ async def on_ready():
         logger.info("✅ - Alert KC active")
         # notification
         scheduler = AsyncIOScheduler()
-        scheduler.add_job(check_kc_result_embed_message, 'cron', hour='12,22')
-        scheduler.add_job(check_today_matches, 'cron', hour='8,12,16,20,23')
+        scheduler.add_job(check_kc_result_embed_message, 'cron', hour='12,22', max_instances=1)
+        scheduler.add_job(check_today_matches, 'cron', hour='8,12,16,20,23', max_instances=1)
         logger.info("✅ - Scheduler set up")
         scheduler.start()
 
