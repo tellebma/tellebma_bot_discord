@@ -10,7 +10,9 @@ import traceback
 import json
 
 from discord.ext import commands
-from apscheduler.schedulers.background import BlockingScheduler    
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.date import DateTrigger
+
 from typing import List, Dict, Any, Optional
 
 from functions import kc
@@ -26,6 +28,9 @@ with open("version.yaml") as f:
     version_number = yaml.load(f, Loader=yaml.FullLoader)["version"]
 
 token = cfg.get("token", False)
+dev = cfg.get("dev", False)
+scheduler = BackgroundScheduler(timezone='Europe/Paris')
+
 if not token:
     logger.error("plz fill config.yaml file from config_template.yaml")
     exit()
@@ -51,7 +56,7 @@ async def on_ready():
     if bot.get_channel(int(cfg['discord']['channels']['kc'])):
         logger.info("✅ - Alert KC active")
         # notification
-        scheduler = BlockingScheduler()
+        
         scheduler.add_job(check_kc_result_embed_message, 'cron', id="check_results", hour='12,22', max_instances=1)
         scheduler.add_job(check_today_matches, 'cron', id="check_matchs", hour='8,12,20', max_instances=1)
         logger.info("✅ - Scheduler set up")
@@ -59,8 +64,8 @@ async def on_ready():
         logger.info(f"Listes des jobs lancé: {l_jobs}")
         scheduler.start()
     
-    dev = True
     if dev:
+        logger.info("Dev mode active, launching process")
         await check_today_matches()
         await check_kc_result_embed_message()        
 
@@ -168,28 +173,19 @@ async def check_today_matches():
             target_time_message_event = now
             logger.info(f"   ↳  Annonce kc à envoyer dès mnt {str(target_time_message_event.hour).zfill(2)}h{str(target_time_message_event.minute).zfill(2)}")
         
-        bot.loop.create_task(
-            send_kc_event_embed_message(event,
-                                        datetime.time(target_time_message_event.hour,
-                                                      target_time_message_event.minute)))
-
+        trigger = DateTrigger(run_date=target_time_message_event, timezone=pytz.timezone(cfg['timezone']))
+        scheduler.add_job(send_kc_event_embed_message, trigger, args=[event,])
+        
         target_time_message_stream = event.start - datetime.timedelta(minutes=5)
-        bot.loop.create_task(
-            send_kc_twitch_link_message(event,
-                                        datetime.time(target_time_message_stream.hour,
-                                                      target_time_message_stream.minute)))
+        trigger = DateTrigger(run_date=target_time_message_stream, timezone=pytz.timezone(cfg['timezone']))
+        scheduler.add_job(send_kc_twitch_link_message, trigger, args=[event,])
+
         logger.info(f"       ↳  Message stream sera envoyé à {str(target_time_message_stream.hour).zfill(2)}h{str(target_time_message_stream.minute).zfill(2)}")
 
 
-async def send_kc_twitch_link_message(event, target_time):
+async def send_kc_twitch_link_message(event):
     """Envoyer un message à une heure précise"""
     await bot.wait_until_ready()
-    now = datetime.datetime.now()
-    future = datetime.datetime.combine(now.date(), target_time)
-    if now.time() > target_time:
-        future = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), target_time)
-    await asyncio.sleep((future - now).total_seconds())
-
     logger.info(f"⇒ Message stream twitch ! {event.id=} - {event.title=}")
     
     try:
@@ -219,14 +215,9 @@ async def send_kc_twitch_link_message(event, target_time):
     logger.error("❌ Message stream erreur (message not found)")
     
     
-async def send_kc_event_embed_message(event, target_time):
+async def send_kc_event_embed_message(event):
     """Envoyer un message à une heure précise"""
     await bot.wait_until_ready()
-    now = datetime.datetime.now()
-    future = datetime.datetime.combine(now.date(), target_time)
-    if now.time() > target_time:
-        future = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), target_time)
-    await asyncio.sleep((future - now).total_seconds())
     # Fonction start
     logger.info(f"⇒ C'est l'heure de l'annonce ! {event.id=} - {event.title=}")
     try:
