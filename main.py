@@ -3,7 +3,6 @@ import datetime
 import yaml
 import asyncio
 import locale
-import sys
 import traceback
 import logging
 import pytz
@@ -11,7 +10,7 @@ import traceback
 import json
 
 from discord.ext import commands
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.schedulers.background import BlockingScheduler    
 from typing import List, Dict, Any, Optional
 
 from functions import kc
@@ -44,7 +43,6 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-
 @bot.event
 async def on_ready():
     logger.info(f"Version of this bot {version_number}")
@@ -53,17 +51,18 @@ async def on_ready():
     if bot.get_channel(int(cfg['discord']['channels']['kc'])):
         logger.info("✅ - Alert KC active")
         # notification
-        scheduler = AsyncIOScheduler()
-        scheduler.add_job(check_kc_result_embed_message, 'cron', hour='12,22', max_instances=1)
-        scheduler.add_job(check_today_matches, 'cron', hour='8,12,16,20,23', max_instances=1)
+        scheduler = BlockingScheduler()
+        scheduler.add_job(check_kc_result_embed_message, 'cron', id="check_results", hour='12,22', max_instances=1)
+        scheduler.add_job(check_today_matches, 'cron', id="check_matchs", hour='8,12,20', max_instances=1)
         logger.info("✅ - Scheduler set up")
         l_jobs = scheduler.get_jobs()
         logger.info(f"Listes des jobs lancé: {l_jobs}")
         scheduler.start()
-
     
-    await check_today_matches()
-    await check_kc_result_embed_message()        
+    dev = True
+    if dev:
+        await check_today_matches()
+        await check_kc_result_embed_message()        
 
 
 @bot.event
@@ -130,6 +129,13 @@ async def liste_kc(ctx):
     except Exception as e:
         logging.error("Error in liste_kc command", exc_info=e)
         await ctx.send("Une erreur s'est produite lors de la lecture du fichier.", delete_after=120)
+
+
+@bot.command(name='remove_match_id', help='Supprime un id de la liste kc')
+@commands.has_role(int(cfg['discord']['roles']['kc']))
+async def remove_match_id(ctx, id_match: int):
+    await ctx.message.delete()
+    remove_kc_id_match_json(id_match)
 
 # ~~~~~~~~~
 #  Fonctions
